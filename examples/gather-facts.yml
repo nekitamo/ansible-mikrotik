@@ -1,0 +1,12 @@
+---
+
+- name: Export and commit to git
+  hosts: mikrotik_routers
+  connection: local
+
+  tasks:
+
+  - name: Gather MikroTik facts
+    mikrotik_facts:
+      hostname: "{{ inventory_hostname }}"
+      username: admin

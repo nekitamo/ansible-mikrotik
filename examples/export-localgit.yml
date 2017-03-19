@@ -2,7 +2,6 @@
 
 - name: Export and commit to git
   hosts: mikrotik_routers
-  gather_facts: false
   connection: local
 
   vars:
