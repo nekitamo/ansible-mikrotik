@@ -75,10 +75,8 @@ ansible_facts:
 
 """
 SHELL_USAGE = """
-
 mikrotik_facts.py --shellmode --hostname=<hostname> [--verbose] [--port=<port>]
                  [--username=<username>] [--password=<password>]
-
 """
 
 try:
@@ -257,7 +255,7 @@ def main():
     src = parse_terse(device, "address",
             'user active print terse where name="' + rosdev['username'] + '" and via=ssh')
     if len(src) == 1:
-        mtfacts['ansible_source_ip'] = src[0]
+        mtfacts['management_source_ip'] = src[0]
         con = parse_terse(device, "dst-address",
             'ip firewall connection print terse where tcp-state=established and '
             + 'src-address~"' + src[0] + '" and dst-address~".*:' + str(rosdev['port'])
@@ -273,7 +271,7 @@ def main():
 
     mtfacts.update(parse_facts(device, "system resource print without-paging"))
     mtfacts.update(parse_facts(device, "system routerboard print without-paging"))
-    mtfacts.update(parse_facts(device, "system health print without-paging",))
+    mtfacts.update(parse_facts(device, "system health print without-paging", "health_"))
     mtfacts.update(parse_facts(device, "system license print without-paging", "license_"))
     mtfacts.update(parse_facts(device, "ip cloud print without-paging", "cloud_"))
     mtfacts['routeros_version'] = mtfacts['version'].split(" ")[0]
@@ -293,8 +291,9 @@ def main():
             "interface print terse without-paging where disabled=no")
     mtfacts['remote_syslog'] = parse_terse(device, "remote",
             "system logging action print terse without-paging")
-    mtfacts['email_server'] = parse_terse(device, "address",
-            "tool e-mail export hide-sensitive")
+    email_server = parse_terse(device, "address", "tool e-mail export hide-sensitive")
+    if email_server:
+        mtfacts['email_server'] = email_server
     if 'wireless' in mtfacts['enabled_packages']:
         wifaces = parse_terse(device, "name",
                 "interface wireless print terse without-paging")
