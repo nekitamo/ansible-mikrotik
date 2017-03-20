@@ -186,19 +186,19 @@ def parse_terse(device, key, command):
             vals.append(val.split(' ')[0])
     return vals
 
-def parse_facts(device, mtfacts, command, pfx=""):
+def parse_facts(device, command, pfx=""):
     """executes a command and returns dict"""
     _stdin, stdout, _stderr = device.exec_command(command)
-    mtfacts = {}
+    facts = {}
     for line in stdout.readlines():
         if ':' in line:
             fact, value = line.partition(":")[::2]
             fact = fact.replace('-', '_')
             if pfx not in fact:
-                mtfacts[pfx + fact.strip()] = str(value.strip())
+                facts[pfx + fact.strip()] = str(value.strip())
             else:
-                mtfacts[fact.strip()] = str(value.strip())
-    return mtfacts
+                facts[fact.strip()] = str(value.strip())
+    return facts
 
 def vercmp(ver1, ver2):
     """quick and dirty version comparison from stackoverflow"""
@@ -275,12 +275,12 @@ def main():
         if len(ifc) == 1:
             mgmt = str(ifc[0])
 
-    mtfacts = parse_facts(device, mtfacts, "system resource print without-paging")
-    mtfacts = parse_facts(device, mtfacts, "system routerboard print without-paging")
-    mtfacts = parse_facts(device, mtfacts, "system health print without-paging")
-    mtfacts = parse_facts(device, mtfacts, "system license print without-paging")
-    mtfacts = parse_facts(device, mtfacts, "ip cloud print without-paging", "cloud_")
-    mtfacts['routeros_version'] = mtfacts['version'].split(" ")[0]
+    mtfacts.update(parse_facts(device, "system resource print without-paging"))
+    mtfacts.update(parse_facts(device, "system routerboard print without-paging"))
+    mtfacts.update(parse_facts(device, "system health print without-paging"))
+    mtfacts.update(parse_facts(device, "system license print without-paging"))
+    mtfacts.update(parse_facts(device, "ip cloud print without-paging", "cloud_"))
+    #mtfacts['routeros_version'] = mtfacts['version'].split(" ")[0]
 
     mtfacts['enabled_packages'] = parse_terse(device, "name",
             "system package print terse without-paging where disabled=no")
@@ -309,17 +309,17 @@ def main():
                 "ipv6 address print terse without-paging where disabled=no")
 
     if verbose:
-        mtfacts = parse_facts(device, mtfacts, "ip ssh print without-paging", "ssh_")
-        mtfacts = parse_facts(device, mtfacts, "ip settings print without-paging", "ipv4_")
-        mtfacts = parse_facts(device, mtfacts, "system clock print without-paging", "clock_")
-        mtfacts = parse_facts(device, mtfacts, "snmp print without-paging", "snmp_")
+        mtfacts = parse_facts(device, "ip ssh print without-paging", "ssh_")
+        mtfacts = parse_facts(device, "ip settings print without-paging", "ipv4_")
+        mtfacts = parse_facts(device, "system clock print without-paging", "clock_")
+        mtfacts = parse_facts(device, "snmp print without-paging", "snmp_")
         mtfacts['disabled_packages'] = parse_terse(device, "name",
             "system package print terse without-paging where disabled=yes")
         mtfacts['disabled_interfaces'] = parse_terse(device, "name",
             "interface print terse without-paging where disabled=yes")
-        mtfacts = parse_facts(device, mtfacts,
+        mtfacts = parse_facts(device,
             "interface bridge settings print without-paging", "bridge_")
-        mtfacts = parse_facts(device, mtfacts,
+        mtfacts = parse_facts(device,
             "ip firewall connection tracking print without-paging", "conntrack_")
         mtfacts['users'] = parse_terse(device, "name",
             "user print terse without-paging where disabled=no")
@@ -337,13 +337,13 @@ def main():
             "interface ethernet switch print terse without-paging")
         mtfacts['bridge_interfaces'] = parse_terse(device, "name",
             "interface bridge print terse without-paging")
-        mtfacts = parse_facts(device, mtfacts,
+        mtfacts = parse_facts(device,
             "system ntp client print without-paging", "ntp_client_")
         if 'ntp' in mtfacts['enabled_packages']:
-            mtfacts = parse_facts(device, mtfacts,
+            mtfacts = parse_facts(device,
                 "system ntp server print without-paging", "ntp_server_")
         if 'ipv6' in mtfacts['enabled_packages']:
-            mtfacts = parse_facts(device, mtfacts, "ipv6 settings print without-paging",
+            mtfacts = parse_facts(device, "ipv6 settings print without-paging",
                 "ipv6_")
 
     if SHELLMODE:
