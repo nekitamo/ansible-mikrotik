@@ -203,7 +203,7 @@ def main():
     rosdev = {}
     cmd_timeout = 30
     changed = False
-    if not SHELLMODE:
+    if not SHELLMODE and sys.stdin.isatty():
         module = AnsibleModule(
             argument_spec=dict(
                 verbose=dict(default=False, type='bool'),
