@@ -125,7 +125,7 @@ def parse_opts(cmdline):
         if 'username' not in options:
             options['username'] = 'admin'
         if 'password' not in options:
-            options['password'] = None
+            options['password'] = ''
         if 'timeout' not in options:
             options['timeout'] = 30
         if 'port' not in options:
@@ -212,7 +212,7 @@ def main():
                 timeout=dict(default=30, type='float'),
                 hostname=dict(required=True),
                 username=dict(default='ansible', type='str'),
-                password=dict(default=None, type='str'),
+                password=dict(default='', type='str'),
             ), supports_check_mode=False
         )
         if not HAS_SSHCLIENT:
