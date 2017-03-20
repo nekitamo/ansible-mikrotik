@@ -16,7 +16,7 @@ apt install ansible git
 ## 2. Download the ansible-mikrotik library:
 ```sh
 git clone https://github.com/nekitamo/ansible-mikrotik.git
-`cd ansible-mikrotik`
+cd ansible-mikrotik
 ```
 ## 3. Initialize local RouterOS package repository
 You can either use the following (more complicated) script which will download less files (~550 MB), but also create includable ansible tasks (current.yml, bugfix.yml) with actual package versions for both release trees:
@@ -31,7 +31,7 @@ Both scripts can be used at will to create the proper directory structure for us
 ## 4. Run some tests to see if it works
 Running the included shell script 'create-vms.sh' will create a local test environment with 3 virtual MikroTik routers (aka CHRs). You can use them to run some example ansible playbooks like so:
 ```sh
-ansible-playbook -i test-routers gather-facts.yml
+ansible-playbook -i test-routers example-mtfacts.yml
 ```
 There is also a cleanup script 'destroy-vms.sh' which will shut down and delete virtual routers once you're done testing.
 ## Shell mode usage (w/o ansible):
@@ -39,4 +39,9 @@ Simply use `mikrotik_<module>.py` modules from `/library` folder with shell comm
 ```sh
 library/mikrotik_facts.py --help
 library/mikrotik_facts.py --shellmode --hostname=192.168.88.1
+```
+In case of problems with ubuntu's (pretty old) built-in version of paramiko upgrade it with pip like this:
+```sh
+sudo apt install build-essential libssl-dev libffi-dev python-dev python-pip
+sudo pip install --upgrade paramiko
 ```
