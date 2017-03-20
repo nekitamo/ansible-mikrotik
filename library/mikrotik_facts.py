@@ -120,7 +120,7 @@ def parse_opts(cmdline):
             arg = arg[2:]
             options[arg] = val
     if 'help' not in options:
-        if 'hostname' not in options:
+        if 'hostname' not in options and SHELLMODE:
             sys.exit("Hostname is required, specify with --hostname=<hostname>")
         if 'username' not in options:
             options['username'] = 'admin'
@@ -352,7 +352,7 @@ def main():
                 print "%s: %s" % (fact, mtfacts[fact])
         sys.exit(0)
 
-    safe_exit(module, device, ansible_facts=mtfacts, changed=changed)
+    safe_exit(module, device, ansible_facts=mtfacts, changed=changed, shell_options=SHELLOPTS)
 
 if __name__ == '__main__':
     SHELLOPTS = parse_opts(sys.argv)
