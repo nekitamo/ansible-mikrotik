@@ -1,8 +1,8 @@
 # ansible-mikrotik
 [Ansible](https://www.ansible.com/) library for [MikroTik](https://mikrotik.com/) [RouterOS](https://mikrotik.com/software) network device management with python modules that can also be used in shell scripts. It was designed with following use-cases in mind:
 * detailed device information (facts) gathering (**mikrotik_facts.py**),
-* RouterOS upgrades and package management (**mikrotik_package.py**),
-* configuration backup and change management (**mikrotik_export.py**),
+* ~~RouterOS upgrades and package management (**mikrotik_package.py**),~~ _work in progress..._
+* ~~configuration backup and change management (**mikrotik_export.py**),~~ _work in progress..._
 * ~~direct command execution or script upload (**mikrotik_command.py**).~~ _work in progress..._
 
 Internet access is not necessary for the package management module, however you have to create a local package repository either manually or by using one of the included shell scripts as described in 3rd step.

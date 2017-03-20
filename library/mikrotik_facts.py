@@ -104,6 +104,7 @@ def safe_exit(module, device=None, **kwargs):
 
 def parse_opts(cmdline):
     """returns SHELLMODE command line options as dict"""
+    global SHELLMODE
     options = {}
     for opt in cmdline:
         if opt.startswith('--'):
@@ -119,17 +120,22 @@ def parse_opts(cmdline):
                     val = True
             arg = arg[2:]
             options[arg] = val
-    if 'help' not in options:
-        if 'hostname' not in options and SHELLMODE:
-            sys.exit("Hostname is required, specify with --hostname=<hostname>")
-        if 'username' not in options:
-            options['username'] = 'admin'
-        if 'password' not in options:
-            options['password'] = ''
-        if 'timeout' not in options:
-            options['timeout'] = 30
-        if 'port' not in options:
-            options['port'] = 22
+    if 'help' in options:
+        print "Ansible MikroTik Library %s" % MIKROTIK_MODULES
+        sys.exit(SHELL_USAGE)
+    if 'shellmode' not in options:
+        return None
+    SHELLMODE = True
+    if 'hostname' not in options:
+        sys.exit("Hostname is required, specify with --hostname=<hostname>")
+    if 'username' not in options:
+        options['username'] = 'admin'
+    if 'password' not in options:
+        options['password'] = ''
+    if 'timeout' not in options:
+        options['timeout'] = 30
+    if 'port' not in options:
+        options['port'] = 22
     return options
 
 def device_connect(module, device, rosdev):
@@ -202,7 +208,7 @@ def vercmp(ver1, ver2):
 
 def main():
     rosdev = {}
-    cmd_timeout = 15
+    cmd_timeout = 30
     changed = False
     if not SHELLMODE:
         module = AnsibleModule(
@@ -226,7 +232,7 @@ def main():
         rosdev['port'] = module.params['port']
         rosdev['timeout'] = module.params['timeout']
 
-    elif len(sys.argv) > 1 and 'help' not in SHELLOPTS:
+    else:
         if not HAS_SSHCLIENT:
             sys.exit("SSH client error: " + str(import_error))
         rosdev['hostname'] = socket.gethostbyname(SHELLOPTS['hostname'])
@@ -238,9 +244,6 @@ def main():
         module = None
         if 'verbose' in SHELLOPTS:
             verbose = SHELLOPTS['verbose']
-    else:
-        print "Ansible MikroTik Library %s" % MIKROTIK_MODULES
-        sys.exit(SHELL_USAGE)
 
     device = paramiko.SSHClient()
     device.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -277,7 +280,7 @@ def main():
     mtfacts = parse_facts(device, mtfacts, "system health print without-paging")
     mtfacts = parse_facts(device, mtfacts, "system license print without-paging")
     mtfacts = parse_facts(device, mtfacts, "ip cloud print without-paging", "cloud_")
-    #mtfacts['routeros_version'] = mtfacts['version'].split(" ")[0]
+    mtfacts['routeros_version'] = mtfacts['version'].split(" ")[0]
 
     mtfacts['enabled_packages'] = parse_terse(device, "name",
             "system package print terse without-paging where disabled=no")
@@ -356,6 +359,4 @@ def main():
 
 if __name__ == '__main__':
     SHELLOPTS = parse_opts(sys.argv)
-    if 'shellmode' in SHELLOPTS:
-        SHELLMODE = True
     main()
