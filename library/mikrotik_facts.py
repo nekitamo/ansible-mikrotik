@@ -112,7 +112,7 @@ def main():
         rosdev['port'] = module.params['port']
         rosdev['timeout'] = module.params['timeout']
 
-    elif len(sys.argv) > 1:
+    elif len(sys.argv) > 1 and 'help' not in SHELLOPTS:
         if not HAS_SSHCLIENT:
             sys.exit("SSH client error: " + str(import_error))
         rosdev['hostname'] = socket.gethostbyname(SHELLOPTS['hostname'])

@@ -16,10 +16,10 @@ apt install ansible git
 ## 2. Download the ansible-mikrotik library:
 ```sh
 git clone https://github.com/nekitamo/ansible-mikrotik.git
-cd ansible-mikrotik
+`cd ansible-mikrotik`
 ```
 ## 3. Initialize local RouterOS package repository
-You can either use the following (more complicated) script which will download less files, but also create includable ansible tasks (current.yml, bugfix.yml) with actual package versions for both release trees:
+You can either use the following (more complicated) script which will download less files (~550 MB), but also create includable ansible tasks (current.yml, bugfix.yml) with actual package versions for both release trees:
 ```sh
 routeros/routeros.sh
 ```
@@ -35,7 +35,8 @@ ansible-playbook -i test-routers gather-facts.yml
 ```
 There is also a cleanup script 'destroy-vms.sh' which will shut down and delete virtual routers once you're done testing.
 ## Shell mode usage (w/o ansible):
-Simply use mikrotik_<module>.py modules from /library folder with shell command line options like so:
+Simply use `mikrotik_<module>.py` modules from `/library` folder with shell command line options like so:
 ```sh
+library/mikrotik_facts.py --help
 library/mikrotik_facts.py --shellmode --hostname=192.168.88.1
 ```
