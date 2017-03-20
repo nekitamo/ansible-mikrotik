@@ -90,6 +90,9 @@ try:
     from ansible.module_utils.basic import AnsibleModule
 except ImportError:
     SHELLMODE = True
+else:
+    if sys.stdin.isatty():
+        SHELLMODE = True
 
 def safe_fail(module, device=None, **kwargs):
     """closes device before module fail"""
@@ -203,7 +206,7 @@ def main():
     rosdev = {}
     cmd_timeout = 30
     changed = False
-    if not SHELLMODE and sys.stdin.isatty():
+    if not SHELLMODE:
         module = AnsibleModule(
             argument_spec=dict(
                 verbose=dict(default=False, type='bool'),
@@ -353,4 +356,5 @@ def main():
 if __name__ == '__main__':
     if len(sys.argv) > 1 or SHELLMODE:
         SHELLOPTS = parse_opts(sys.argv)
+        SHELLMODE = True
     main()
