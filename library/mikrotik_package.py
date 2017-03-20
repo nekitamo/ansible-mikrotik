@@ -12,8 +12,9 @@ DOCUMENTATION = """
 module: mikrotik_package
 short_description: MikroTik RouterOS package manager
 description:
-    - MikroTik RouterOS package manager with desired state provisioning
-    - Supports automatic install/enable/disable package operations
+    - MikroTik RouterOS package manager for desired state provisioning
+    - Supports automatic install/enable/disable package operations with local package repository
+    - If you create router user 'ansible' with ssh-key you can omit username/password in playbooks    
 return_data:
     - changed
     - enabled_packages
@@ -169,6 +170,7 @@ def main():
         if 'reboot' in SHELLOPTS:
             reboot = SHELLOPTS['reboot']
     else:
+        print "Ansible MikroTik Library %s" % MIKROTIK_MODULES
         sys.exit(SHELL_USAGE)
 
     device = paramiko.SSHClient()

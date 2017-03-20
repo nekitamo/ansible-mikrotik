@@ -13,8 +13,8 @@ module: mikrotik_export
 short_description: MikroTik RouterOS configuration export
 description:
     - Exports full router configuration to <identity>_<software_id>.rsc file in export directory
-    - By default no local export file is created on the router (enable with local_file:yes)
-    - Create ansible user with ssh-key to avoid using username/password in playbooks
+    - By default no local export file is created on the router (enable with local_file: yes)
+    - If you create router user 'ansible' with ssh-key you can omit username/password in playbooks
 return_data:
     - identity
     - software_id
@@ -181,6 +181,7 @@ def main():
         if 'verbose' in SHELLOPTS:
             verbose = SHELLOPTS['verbose']
     else:
+        print "Ansible MikroTik Library %s" % MIKROTIK_MODULES
         sys.exit(SHELL_USAGE)
 
     device = paramiko.SSHClient()

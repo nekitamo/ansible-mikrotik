@@ -6,6 +6,7 @@ import re
 
 HAS_SSHCLIENT = True
 SHELLMODE = False
+MIKROTIK_MODULES = '[github.com/nekitamo/ansible-mikrotik]: 2017.03.20'
 
 def safe_fail(module, device=None, **kwargs):
     """closes device before module fail"""
