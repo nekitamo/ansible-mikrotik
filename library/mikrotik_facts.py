@@ -277,10 +277,10 @@ def main():
 
     mtfacts.update(parse_facts(device, "system resource print without-paging"))
     mtfacts.update(parse_facts(device, "system routerboard print without-paging"))
-    mtfacts.update(parse_facts(device, "system health print without-paging"))
-    mtfacts.update(parse_facts(device, "system license print without-paging"))
+    mtfacts.update(parse_facts(device, "system health print without-paging",))
+    mtfacts.update(parse_facts(device, "system license print without-paging", "license_"))
     mtfacts.update(parse_facts(device, "ip cloud print without-paging", "cloud_"))
-    #mtfacts['routeros_version'] = mtfacts['version'].split(" ")[0]
+    mtfacts['routeros_version'] = mtfacts['version'].split(" ")[0]
 
     mtfacts['enabled_packages'] = parse_terse(device, "name",
             "system package print terse without-paging where disabled=no")
@@ -309,18 +309,18 @@ def main():
                 "ipv6 address print terse without-paging where disabled=no")
 
     if verbose:
-        mtfacts = parse_facts(device, "ip ssh print without-paging", "ssh_")
-        mtfacts = parse_facts(device, "ip settings print without-paging", "ipv4_")
-        mtfacts = parse_facts(device, "system clock print without-paging", "clock_")
-        mtfacts = parse_facts(device, "snmp print without-paging", "snmp_")
+        mtfacts.update(parse_facts(device, "ip ssh print without-paging", "ssh_"))
+        mtfacts.update(parse_facts(device, "ip settings print without-paging", "ipv4_"))
+        mtfacts.update(parse_facts(device, "system clock print without-paging", "clock_"))
+        mtfacts.update(parse_facts(device, "snmp print without-paging", "snmp_"))
         mtfacts['disabled_packages'] = parse_terse(device, "name",
             "system package print terse without-paging where disabled=yes")
         mtfacts['disabled_interfaces'] = parse_terse(device, "name",
             "interface print terse without-paging where disabled=yes")
-        mtfacts = parse_facts(device,
-            "interface bridge settings print without-paging", "bridge_")
-        mtfacts = parse_facts(device,
-            "ip firewall connection tracking print without-paging", "conntrack_")
+        mtfacts.update(parse_facts(device,
+            "interface bridge settings print without-paging", "bridge_"))
+        mtfacts.update(parse_facts(device,
+            "ip firewall connection tracking print without-paging", "conntrack_"))
         mtfacts['users'] = parse_terse(device, "name",
             "user print terse without-paging where disabled=no")
         mtfacts['mac_server_interfaces'] = parse_terse(device, "interface",
@@ -337,14 +337,14 @@ def main():
             "interface ethernet switch print terse without-paging")
         mtfacts['bridge_interfaces'] = parse_terse(device, "name",
             "interface bridge print terse without-paging")
-        mtfacts = parse_facts(device,
-            "system ntp client print without-paging", "ntp_client_")
+        mtfacts.update(parse_facts(device,
+            "system ntp client print without-paging", "ntp_client_"))
         if 'ntp' in mtfacts['enabled_packages']:
-            mtfacts = parse_facts(device,
-                "system ntp server print without-paging", "ntp_server_")
+            mtfacts.update(parse_facts(device,
+                "system ntp server print without-paging", "ntp_server_"))
         if 'ipv6' in mtfacts['enabled_packages']:
-            mtfacts = parse_facts(device, "ipv6 settings print without-paging",
-                "ipv6_")
+            mtfacts.update(parse_facts(device, "ipv6 settings print without-paging",
+                "ipv6_"))
 
     if SHELLMODE:
         device.close()
