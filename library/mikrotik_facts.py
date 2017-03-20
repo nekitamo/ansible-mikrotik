@@ -8,7 +8,8 @@ import socket
 
 HAS_SSHCLIENT = True
 SHELLMODE = False
-MIKROTIK_MODULES = '[github.com/nekitamo/ansible-mikrotik]: 2017.03.20'
+SHELLOPTS = None
+MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik]: 2017.03.20'
 DOCUMENTATION = """
 ---
 
@@ -104,8 +105,11 @@ def safe_exit(module, device=None, **kwargs):
 
 def parse_opts(cmdline):
     """returns SHELLMODE command line options as dict"""
-    global SHELLMODE
     options = {}
+    options['username'] = 'admin'
+    options['password'] = ''
+    options['timeout'] = 30
+    options['port'] = 22
     for opt in cmdline:
         if opt.startswith('--'):
             try:
@@ -120,22 +124,11 @@ def parse_opts(cmdline):
                     val = True
             arg = arg[2:]
             options[arg] = val
-    if 'help' in options:
-        print "Ansible MikroTik Library %s" % MIKROTIK_MODULES
-        sys.exit(SHELL_USAGE)
     if 'shellmode' not in options:
-        return None
-    SHELLMODE = True
+        print "Ansible MikroTik Library %s" % MIKROTIK_MODULE
+        sys.exit(SHELL_USAGE)
     if 'hostname' not in options:
         sys.exit("Hostname is required, specify with --hostname=<hostname>")
-    if 'username' not in options:
-        options['username'] = 'admin'
-    if 'password' not in options:
-        options['password'] = ''
-    if 'timeout' not in options:
-        options['timeout'] = 30
-    if 'port' not in options:
-        options['port'] = 22
     return options
 
 def device_connect(module, device, rosdev):
@@ -355,8 +348,9 @@ def main():
                 print "%s: %s" % (fact, mtfacts[fact])
         sys.exit(0)
 
-    safe_exit(module, device, ansible_facts=mtfacts, changed=changed, shell_options=SHELLOPTS)
+    safe_exit(module, device, ansible_facts=mtfacts, changed=changed)
 
 if __name__ == '__main__':
-    SHELLOPTS = parse_opts(sys.argv)
+    if len(sys.argv) > 1 or SHELLMODE:
+        SHELLOPTS = parse_opts(sys.argv)
     main()

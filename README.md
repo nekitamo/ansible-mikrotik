@@ -5,7 +5,7 @@
 * ~~configuration backup and change management (**mikrotik_export.py**),~~ _work in progress..._
 * ~~direct command execution or script upload (**mikrotik_command.py**).~~ _work in progress..._
 
-Internet access is not necessary for the package management module, however you have to create a local package repository either manually or by using one of the included shell scripts as described in 3rd step.
+Internet access is not necessary for package management, however you have to create local package repository either manually or by using one of included shell scripts as described in the 3rd step.
 ## 1. Basic prerequisites installation (debian/ubuntu):
 Install stable version of Ansible, for example by adding its [Launchpad](https://launchpad.net/~ansible/+archive/ubuntu/ansible) repository on ubuntu:
 ```sh
@@ -27,7 +27,7 @@ Or you can use this much simpler script that will download practically everythin
 ```sh
 ./ros-latest.sh
 ```
-Both scripts can be used at will to create the proper directory structure for use with mikrotik_package.py module. Also, both will probably have to be constantly updated as MikroTik web pages change with time...
+Both scripts can be used at will to create the proper directory structure for use with mikrotik_package.py module. Also, both will probably have to be constantly updated as MikroTik web pages evolve with time...
 ## 4. Run some tests to see if it works
 Running the included shell script 'create-vms.sh' will create a local test environment with 3 virtual MikroTik routers (aka CHRs). You can use them to run some example ansible playbooks like so:
 ```sh
@@ -40,7 +40,7 @@ Simply use `mikrotik_<module>.py` modules from `/library` folder with shell comm
 library/mikrotik_facts.py --help
 library/mikrotik_facts.py --shellmode --hostname=192.168.88.1
 ```
-In case of problems with ubuntu's (pretty old) built-in version of paramiko upgrade it with pip like this:
+In case of problems with ubuntu's (pretty old) built-in version of paramiko, upgrade it with pip like this:
 ```sh
 sudo apt install build-essential libssl-dev libffi-dev python-dev python-pip
 sudo pip install --upgrade paramiko
