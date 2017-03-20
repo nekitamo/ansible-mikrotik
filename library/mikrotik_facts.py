@@ -163,7 +163,7 @@ def main():
     mtfacts = parse_facts(device, mtfacts, "system health print without-paging")
     mtfacts = parse_facts(device, mtfacts, "system license print without-paging")
     mtfacts = parse_facts(device, mtfacts, "ip cloud print without-paging", "cloud_")
-    mtfacts['routeros_version'] = mtfacts['version'].split(" ")[0]
+    #mtfacts['routeros_version'] = mtfacts['version'].split(" ")[0]
 
     mtfacts['enabled_packages'] = parse_terse(device, "name",
             "system package print terse without-paging where disabled=no")
