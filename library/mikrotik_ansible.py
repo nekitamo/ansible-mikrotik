@@ -37,16 +37,17 @@ def parse_opts(cmdline):
                     val = True
             arg = arg[2:]
             options[arg] = val
-    if 'hostname' not in options:
-        sys.exit("Hostname is required, specify with --hostname=<hostname>")
-    if 'username' not in options:
-        options['username'] = 'admin'
-    if 'password' not in options:
-        options['password'] = None
-    if 'timeout' not in options:
-        options['timeout'] = 30
-    if 'port' not in options:
-        options['port'] = 22
+    if 'help' not in options:
+        if 'hostname' not in options:
+            sys.exit("Hostname is required, specify with --hostname=<hostname>")
+        if 'username' not in options:
+            options['username'] = 'admin'
+        if 'password' not in options:
+            options['password'] = None
+        if 'timeout' not in options:
+            options['timeout'] = 30
+        if 'port' not in options:
+            options['port'] = 22
     return options
 
 def device_connect(module, device, rosdev):
