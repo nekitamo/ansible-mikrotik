@@ -8,8 +8,14 @@ import socket
 
 HAS_SSHCLIENT = True
 SHELLMODE = False
-SHELLOPTS = None
-MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik]: 2017.03.20'
+SHELLDEFS = {
+    'username': 'admin',
+    'password': '',
+    'timeout': 30,
+    'port': 22,
+    'verbose': False
+}
+MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik] v2017.03.20'
 DOCUMENTATION = """
 ---
 
@@ -75,7 +81,7 @@ ansible_facts:
 
 """
 SHELL_USAGE = """
-mikrotik_facts.py --shellmode --hostname=<hostname> [--verbose] [--port=<port>]
+mikrotik_facts.py --hostname=<hostname> [--verbose] [--port=<port>]
                  [--username=<username>] [--password=<password>]
 """
 
@@ -106,11 +112,7 @@ def safe_exit(module, device=None, **kwargs):
 
 def parse_opts(cmdline):
     """returns SHELLMODE command line options as dict"""
-    options = {}
-    options['username'] = 'admin'
-    options['password'] = ''
-    options['timeout'] = 30
-    options['port'] = 22
+    options = SHELLDEFS
     for opt in cmdline:
         if opt.startswith('--'):
             try:
@@ -124,16 +126,29 @@ def parse_opts(cmdline):
                 elif val.lower() in ('yes', 'true', '1'):
                     val = True
             arg = arg[2:]
-            options[arg] = val
-    if 'shellmode' not in options:
-        print "Ansible MikroTik Library %s" % MIKROTIK_MODULE
-        sys.exit(SHELL_USAGE)
+            if arg in options or arg == 'hostname':
+                options[arg] = val
+            else:
+                print SHELL_USAGE
+                sys.exit("Unknown option: --%s" % arg)
     if 'hostname' not in options:
+        print SHELL_USAGE
         sys.exit("Hostname is required, specify with --hostname=<hostname>")
     return options
 
 def device_connect(module, device, rosdev):
     """open ssh connection with or without ssh keys"""
+    try:
+        rosdev['hostname'] = socket.gethostbyname(rosdev['hostname'])
+    except socket.gaierror as dns_error:
+        if SHELLMODE:
+            sys.exit("Hostname error: " + str(dns_error))
+        safe_fail(module, device, msg=str(dns_error),
+                  description='error getting device address from hostname')
+    if SHELLMODE:
+        sys.stdout.write("Opening SSH connection to %s:%s... "
+                         % (rosdev['hostname'], rosdev['port']))
+        sys.stdout.flush()
     try:
         device.connect(rosdev['hostname'], username=rosdev['username'],
                        password=rosdev['password'], port=rosdev['port'],
@@ -146,9 +161,12 @@ def device_connect(module, device, rosdev):
                            look_for_keys=False)
         except Exception as ssh_error:
             if SHELLMODE:
-                sys.exit("SSH error: " + str(ssh_error))
+                sys.exit("failed!\nSSH error: " + str(ssh_error))
             safe_fail(module, device, msg=str(ssh_error),
                       description='error opening ssh connection to device')
+    if SHELLMODE:
+        print "succes."
+
 
 def sshcmd(module, device, timeout, command):
     """executes a command on the device, returns string"""
@@ -220,7 +238,7 @@ def main():
                       error=str(import_error))
 
         verbose = module.params['verbose']
-        rosdev['hostname'] = socket.gethostbyname(module.params['hostname'])
+        rosdev['hostname'] = module.params['hostname']
         rosdev['username'] = module.params['username']
         rosdev['password'] = module.params['password']
         rosdev['port'] = module.params['port']
@@ -229,15 +247,13 @@ def main():
     else:
         if not HAS_SSHCLIENT:
             sys.exit("SSH client error: " + str(import_error))
-        rosdev['hostname'] = socket.gethostbyname(SHELLOPTS['hostname'])
+        rosdev['hostname'] = SHELLOPTS['hostname']
         rosdev['username'] = SHELLOPTS['username']
         rosdev['password'] = SHELLOPTS['password']
         rosdev['port'] = SHELLOPTS['port']
         rosdev['timeout'] = SHELLOPTS['timeout']
-        verbose = False
+        verbose = SHELLOPTS['verbose']
         module = None
-        if 'verbose' in SHELLOPTS:
-            verbose = SHELLOPTS['verbose']
 
     device = paramiko.SSHClient()
     device.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -354,6 +370,7 @@ def main():
 
 if __name__ == '__main__':
     if len(sys.argv) > 1 or SHELLMODE:
+        print "Ansible MikroTik Library %s" % MIKROTIK_MODULE
         SHELLOPTS = parse_opts(sys.argv)
         SHELLMODE = True
     main()

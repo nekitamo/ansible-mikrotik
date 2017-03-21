@@ -13,11 +13,6 @@ sudo apt-add-repository ppa:ansible/ansible
 apt update
 apt install ansible git
 ```
-As your distribution's version of paramiko library is probably pretty old, you can upgrade it using pip like so:
-```sh
-sudo apt install build-essential libssl-dev libffi-dev python-dev python-pip
-sudo pip install --upgrade paramiko
-```
 ## 2. Download the ansible-mikrotik library:
 ```sh
 git clone https://github.com/nekitamo/ansible-mikrotik.git
@@ -42,6 +37,15 @@ There is also a cleanup script 'destroy-vms.sh' which will shut down and delete 
 ## Shell mode usage (w/o ansible) on ubuntu:
 Simply use `mikrotik_<module>.py` modules from `/library` folder with shell command line options like so:
 ```sh
-library/mikrotik_facts.py --help
-library/mikrotik_facts.py --shellmode --hostname=192.168.88.1
+library/mikrotik_facts.py --hostname=192.168.88.1 --verbose
+```
+Run it without arguments for basic usage info or open it with a text editor for detailed built-in ansible documentation.
+## Troubleshooting
+### SSH client error: No module named paramiko
+This means you need to install python's paramiko module. As simply apt-getting `python-paramiko` will probably just lead to problem described in next chapter, run both commands at its end to get the latest version right away.
+### FutureWarning: CTR mode needs counter parameter, not IV
+If you see the above warning than your distribution's version of paramiko is, besides being pretty old, also broken and you should upgrade it:
+```sh
+sudo apt install build-essential libssl-dev libffi-dev python-dev python-pip
+sudo -H pip install --upgrade paramiko
 ```
