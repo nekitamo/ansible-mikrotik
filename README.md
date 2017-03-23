@@ -1,8 +1,8 @@
 # ansible-mikrotik
 [Ansible](https://www.ansible.com/) library for [MikroTik](https://mikrotik.com/) [RouterOS](https://mikrotik.com/software) network device management with python modules that can also be used in shell scripts. It was designed with following use-cases in mind:
 * detailed device information (facts) gathering (**mikrotik_facts.py**),
-* ~~RouterOS upgrades and package management (**mikrotik_package.py**),~~ _work in progress..._
-* ~~configuration backup and change management (**mikrotik_export.py**),~~ _work in progress..._
+* configuration backup and change management (**mikrotik_export.py**),
+* RouterOS upgrades and package management (**mikrotik_package.py**),
 * ~~direct command execution or script upload (**mikrotik_command.py**).~~ _work in progress..._
 
 Internet access is not necessary for package management, however you have to create local package repository either manually or by using one of included shell scripts as described in the 3rd step.
@@ -19,7 +19,7 @@ git clone https://github.com/nekitamo/ansible-mikrotik.git
 cd ansible-mikrotik
 ```
 ## 3. Initialize local RouterOS package repository
-You can either use the following (more complicated) script which will download less files (~550 MB), but also create includable ansible tasks (current.yml, bugfix.yml) with actual package versions for both release trees:
+You can either use the following (more complicated) script which downloads less files (~550 MB) and creates includable ansible vars (versions.yml) with actual package versions for current and bugfix release trees:
 ```sh
 routeros/routeros.sh
 ```
@@ -32,6 +32,8 @@ Both scripts can be used at will to create proper directory structure for use wi
 Running the included shell script 'create-vms.sh' should create a local test environment with 3 virtual MikroTik routers (aka CHRs). You can use them to run some example ansible playbooks like so:
 ```sh
 ansible-playbook -i test-routers example-mtfacts.yml
+ansible-playbook -i test-routers example-exp2git.yml
+ansible-playbook -i test-routers example-upgrade.yml
 ```
 There is also a cleanup script 'destroy-vms.sh' which will shut down and delete virtual routers once you're done testing.
 ## Shell mode usage (w/o ansible) on ubuntu:

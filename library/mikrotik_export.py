@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 # coding: utf-8
-"""MikroTik RouterOS ansible facts gathering module"""
+"""MikroTik RouterOS backup and change manager"""
 
 import sys
 import re
 import socket
+import os
 
 HAS_SSHCLIENT = True
 SHELLMODE = False
@@ -13,72 +14,120 @@ SHELLDEFS = {
     'password': '',
     'timeout': 30,
     'port': 22,
+    'export_dir': None,
+    'timestamp': False,
+    'hide_sensitive': True,
+    'local_file': False,
     'verbose': False
+# TODO: download backups
+#    'backup_dir': None,
+#    'get_backups': False
 }
 MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik] v2017.03.23'
 DOCUMENTATION = """
 ---
 
-module: mikrotik_facts
-short_description: Gather facts from MikroTik RouterOS devices
+module: mikrotik_export
+short_description: MikroTik RouterOS configuration export
 description:
-    - Gather fact data (characteristics) of MikroTik RouterOS devices.
-    - If you create router user 'ansible' with ssh-key you can omit username/password in playbooks    
+    - Exports full router configuration to <identity>_<software_id>.rsc file in export directory
+    - By default no local export file is created on the router (enable with local_file: yes)
+    - If you create router user 'ansible' with ssh-key you can omit username/password in playbooks
 return_data:
     - identity
-    - license
-    - resources
-    - routerboard
-    - health
-    - users
-    - packages
-    - interfaces
-    - ip addresses
-    - mac addresses
-    - misc info
+    - software_id
+    - export_dir
+    - export_file
 options:
+    export_dir:
+        description:
+            - Directory where exported file (<identity>_<software_id>.rsc) is written after export
+            - Existing files with the same name are automatically overwritten
+        required: true
+        default: null
+    timestamp:
+        description:
+            - Leave default timestamp in export file (first line), disabled for version tracking
+        required: false
+        default: false
+    hide_sensitive:
+        description:
+            - Do not include passwords or other sensitive info in exported configuration file
+        required: false
+        default: true
+    local_file:
+        description:
+            - Also write config as local file on device (ansible-export.rsc) before export
+            - Exports via local_file option allways include timestamp in first line
+        required: false
+        default: false
     verbose:
         description:
-            - Gather even more device facts (slower)
-        required: no
+            - Export verbose config including default option values (large export file)
+        required: false
         default: false
     port:
         description:
             - SSH listening port of the MikroTik device
-        required: no
+        required: false
         default: 22
     hostname:
         description:
             - IP Address or hostname of the MikroTik device
-        required: yes
+        required: true
         default: null
     username:
         description:
             - Username used to login to the device
-        required: no
+        required: false
         default: ansible
     password:
         description:
             - Password used to login to the device
-        required: no
+        required: false
         default: null
 
 """
 EXAMPLES = """
-- name: Gather MikroTik facts
-    mikrotik_facts:
+# example playbook
+---
+
+- name: Export Mikrotik RouterOS config
+  hosts: mikrotik_routers
+  gather_facts: false
+  connection: local
+
+  tasks:
+
+  - name: Export router configurations
+    mikrotik_export:
         hostname: "{{ inventory_hostname }}"
-        username: admin
+        export_dir: exports
+        hide_sensitive: false
+        timestamp: true
 """
 RETURN = """
-ansible_facts:
-    description: Returns facts collected from the device
+identity:
+    description: Returns device identity (system identity print)
     returned: always
-    type: dict
+    type: string
+software_id:
+    description: Returns device software_id (system identity print)
+    returned: always
+    type: string
+export_dir:
+    description: Returns full os path for export directory
+    returned: always
+    type: string
+export_file:
+    description: Returns filename of exported configuration (<identity>_<software_id>.rsc)
+    returned: always
+    type: string
 """
 SHELL_USAGE = """
-mikrotik_facts.py --hostname=<hostname> [--verbose] [--port=<port>]
-                 [--username=<username>] [--password=<password>]
+mikrotik_export.py --hostname=<hostname> --export_dir=<path>
+               [--timestamp=yes|no] [--hide_sensitive] [--verbose] [--local_file]
+               [--port=<port>] [--username=<username>] [--password=<password>]
 """
 
 try:
@@ -91,6 +140,7 @@ try:
 except ImportError:
     SHELLMODE = True
 else:
+    # ansible parameters on stdin?
     if sys.stdin.isatty():
         SHELLMODE = True
 
@@ -220,17 +270,25 @@ def main():
     if not SHELLMODE:
         module = AnsibleModule(
             argument_spec=dict(
+                export_dir=dict(required=True, type='path'),
+                timestamp=dict(default=False, type='bool'),
+                hide_sensitive=dict(default=True, type='bool'),
+                local_file=dict(default=False, type='bool'),
                 verbose=dict(default=False, type='bool'),
-                port=dict(default=22, type='int'),
-                timeout=dict(default=30, type='float'),
                 hostname=dict(required=True),
                 username=dict(default='ansible', type='str'),
-                password=dict(default='', type='str'),
+                password=dict(default=None, type='str'),
+                port=dict(default=22, type='int'),
+                timeout=dict(default=30, type='float')
             ), supports_check_mode=False
         )
         if not HAS_SSHCLIENT:
             safe_fail(module, msg='There was a problem loading module: ',
                       error=str(import_error))
+        export_dir = os.path.expanduser(module.params['export_dir'])
+        timestamp = module.params['timestamp']
+        hide_sensitive = module.params['hide_sensitive']
+        local_file = module.params['local_file']
         verbose = module.params['verbose']
         rosdev['hostname'] = module.params['hostname']
         rosdev['username'] = module.params['username']
@@ -241,11 +299,18 @@ def main():
     else:
         if not HAS_SSHCLIENT:
             sys.exit("SSH client error: " + str(import_error))
+        if not SHELLOPTS['export_dir']:
+            print SHELL_USAGE
+            sys.exit("export_dir required, specify with --export_dir=<path>")
+        export_dir = os.path.expanduser(SHELLOPTS['export_dir'])
         rosdev['hostname'] = SHELLOPTS['hostname']
         rosdev['username'] = SHELLOPTS['username']
         rosdev['password'] = SHELLOPTS['password']
         rosdev['port'] = SHELLOPTS['port']
         rosdev['timeout'] = SHELLOPTS['timeout']
+        hide_sensitive = SHELLOPTS['hide_sensitive']
+        timestamp = SHELLOPTS['timestamp']
+        local_file = SHELLOPTS['local_file']
         verbose = SHELLOPTS['verbose']
         module = None
 
@@ -253,113 +318,54 @@ def main():
     device.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     device_connect(module, device, rosdev)
 
-    mtfacts = {}
-    mgmt = None
-    identity = sshcmd(module, device, cmd_timeout, "system identity print")
-    mtfacts['identity'] = str(identity.split(": ")[1])
-    user_ssh_keys = parse_terse(device, "key-owner",
-            "user ssh-keys print terse where user=" + rosdev['username'])
-    if len(user_ssh_keys):
-        mtfacts['user_ssh_keys'] = user_ssh_keys
-    src = parse_terse(device, "address",
-            'user active print terse where name="' + rosdev['username'] + '" and via=ssh')
-    if len(src) == 1:
-        mtfacts['management_source_ip'] = src[0]
-        con = parse_terse(device, "dst-address",
-            'ip firewall connection print terse where tcp-state=established and '
-            + 'src-address~"' + src[0] + '" and dst-address~".*:' + str(rosdev['port'])
-            + '"')
-        if len(con) == 1:
-            ifc = parse_terse(device, "interface",
-                'ip address print terse where address~"' + str(con[0]).split(":")[0] + '"')
-        else:
-            ifc = parse_terse(device, "interface",
-                'ip address print terse where address~"' + rosdev['hostname'] + '"')
-        if len(ifc) == 1:
-            mgmt = str(ifc[0])
-
-    mtfacts.update(parse_facts(device, "system resource print without-paging"))
-    mtfacts.update(parse_facts(device, "system routerboard print without-paging"))
-    mtfacts.update(parse_facts(device, "system health print without-paging", "health_"))
-    mtfacts.update(parse_facts(device, "system license print without-paging", "license_"))
-    mtfacts.update(parse_facts(device, "ip cloud print without-paging", "cloud_"))
-    mtfacts['routeros_version'] = mtfacts['version'].split(" ")[0]
-
-    mtfacts['enabled_packages'] = parse_terse(device, "name",
-            "system package print terse without-paging where disabled=no")
-    for pkg in mtfacts['enabled_packages']:
-        if 'routeros' in pkg:
-            mtfacts['enabled_packages'].remove(pkg)
-    mtfacts['enabled_interfaces'] = parse_terse(device, "name",
-            "interface print terse without-paging where disabled=no")
-    if mgmt and mgmt in mtfacts['enabled_interfaces']:
-        mtfacts['management_interface'] = mgmt
-    mtfacts['ip_addresses'] = parse_terse(device, "address",
-            "ip address print terse without-paging where disabled=no")
-    mtfacts['mac_addresses'] = parse_terse(device, "mac-address",
-            "interface print terse without-paging where disabled=no")
-    mtfacts['remote_syslog'] = parse_terse(device, "remote",
-            "system logging action print terse without-paging")
-    email_server = parse_terse(device, "address", "tool e-mail export hide-sensitive")
-    if email_server:
-        mtfacts['email_server'] = email_server
-    if 'wireless' in mtfacts['enabled_packages']:
-        wifaces = parse_terse(device, "name",
-                "interface wireless print terse without-paging")
-        if wifaces:
-            mtfacts['wireless_interfaces'] = wifaces
-    if 'ipv6' in mtfacts['enabled_packages']:
-        mtfacts['ipv6_addresses'] = parse_terse(device, "address",
-                "ipv6 address print terse without-paging where disabled=no")
-
+    response = sshcmd(module, device, cmd_timeout, "system identity print")
+    identity = str(response.split(": ")[1])
+    identity = identity.strip()
+    software_id = sshcmd(module, device, cmd_timeout,
+                         ":put [ /system license get software-id ]")
+    export_file = identity + "_" + software_id + ".rsc"
+    export_dir = os.path.realpath(export_dir)
+    exportfull = os.path.join(export_dir, export_file)
+    exportcmd = "export"
+    if hide_sensitive:
+        exportcmd += " hide-sensitive"
     if verbose:
-        mtfacts.update(parse_facts(device, "ip ssh print without-paging", "ssh_"))
-        mtfacts.update(parse_facts(device, "ip settings print without-paging", "ipv4_"))
-        mtfacts.update(parse_facts(device, "system clock print without-paging", "clock_"))
-        mtfacts.update(parse_facts(device, "snmp print without-paging", "snmp_"))
-        mtfacts['disabled_packages'] = parse_terse(device, "name",
-            "system package print terse without-paging where disabled=yes")
-        mtfacts['disabled_interfaces'] = parse_terse(device, "name",
-            "interface print terse without-paging where disabled=yes")
-        mtfacts.update(parse_facts(device,
-            "interface bridge settings print without-paging", "bridge_"))
-        mtfacts.update(parse_facts(device,
-            "ip firewall connection tracking print without-paging", "conntrack_"))
-        mtfacts['users'] = parse_terse(device, "name",
-            "user print terse without-paging where disabled=no")
-        mtfacts['mac_server_interfaces'] = parse_terse(device, "interface",
-            "tool mac-server print terse without-paging where disabled=no")
-        mtfacts['mac_winbox_interfaces'] = parse_terse(device, "interface",
-            "tool mac-server mac-winbox print terse without-paging where disabled=no")
-        mtfacts['ip_services'] = parse_terse(device, "name",
-            "ip service print terse without-paging where disabled=no")
-        mtfacts['neighbor_discovery_interfaces'] = parse_terse(device, "name",
-            "ip neighbor discovery print terse without-paging where disabled=no")
-        mtfacts['ethernet_interfaces'] = parse_terse(device, "name",
-            "interface ethernet print terse without-paging")
-        mtfacts['ethernet_switch_types'] = parse_terse(device, "type",
-            "interface ethernet switch print terse without-paging")
-        mtfacts['bridge_interfaces'] = parse_terse(device, "name",
-            "interface bridge print terse without-paging")
-        mtfacts.update(parse_facts(device,
-            "system ntp client print without-paging", "ntp_client_"))
-        if 'ntp' in mtfacts['enabled_packages']:
-            mtfacts.update(parse_facts(device,
-                "system ntp server print without-paging", "ntp_server_"))
-        if 'ipv6' in mtfacts['enabled_packages']:
-            mtfacts.update(parse_facts(device, "ipv6 settings print without-paging",
-                "ipv6_"))
+        exportcmd += " verbose"
+    if local_file:
+        exportcmd += " file=ansible-export"
+    response = sshcmd(module, device, cmd_timeout, exportcmd)
+    if local_file:
+        sftp = device.open_sftp()
+        sftp.get("/ansible-export.rsc", exportfull)
+        sftp.close()
+        changed = True
+    else:
+        try:
+            with open(exportfull, 'w') as exp:
+                exp.write("# " + rosdev['username'] + "@" + identity + ": "
+                          + exportcmd + "\n")
+                if timestamp:
+                    exp.write(response)
+                else:
+                    no_ts = response.splitlines(1)[1:]
+                    exp.writelines(no_ts)
+                exp.close()
+        except Exception as export_error:
+            if SHELLMODE:
+                device.close()
+                sys.exit("Export file error: " + str(export_error))
+            safe_fail(module, device, msg=str(export_error),
+                      description='error writing to export file')
 
     if SHELLMODE:
         device.close()
-        for fact in sorted(mtfacts):
-            if isinstance(mtfacts[fact], list):
-                print "%s: %s" % (fact, ', '.join(mtfacts[fact]))
-            else:
-                print "%s: %s" % (fact, mtfacts[fact])
+        print "export_dir: %s" % export_dir
+        print "export_file: %s" % export_file
         sys.exit(0)
 
-    safe_exit(module, device, ansible_facts=mtfacts, changed=changed)
+    safe_exit(module, device, changed=changed,
+              export_file=export_file, export_dir=export_dir,
+              identity=identity, software_id=software_id)
 
 if __name__ == '__main__':
     if len(sys.argv) > 1 or SHELLMODE:

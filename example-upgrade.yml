@@ -1,0 +1,20 @@
+---
+
+- name: collect MikroTik facts
+  hosts: mikrotik_routers
+  connection: local
+
+  tasks:
+
+  - name: include routeros repository vars
+    include_vars: routeros/versions.yml
+
+  - debug:
+      var: routeros_current
+
+  - name: upgrade and reboot
+    mikrotik_package:
+      hostname: "{{ inventory_hostname }}"
+      username: admin
+      version: "{{ routeros_current }}"
+      reboot: true

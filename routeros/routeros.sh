@@ -6,36 +6,19 @@ set -eu
 # mikrotik_package.py Ansible module. It may need some adjustments
 # from time to time as target MikroTik web changes (ros_archive).
 #
-script_version="v2017.03.05 by https://github.com/nekitamo"
+script_version="v2017.03.23 by https://github.com/nekitamo"
 ros_scheme="https:"
 ros_archive="$ros_scheme//www.mikrotik.com/download/archive"
 ros_repo=routeros
+ros_cleanup=180
 ros_log=routeros.log
-#
-# What follows is a template that creates two ansible tasks which can
-# be included in your playbooks if you want latest routeros versions:
-#
-# - include: routeros/current.yml
-#              or
-# - include: routeros/bugfix.yml
-#
-ros_yml=$(cat <<EOF
----
-- name: upgrade routeros packages
-  mikrotik_package:
-#    repository: $ros_repo
-    hostname: "{{ inventory_hostname }}"
-#    username: "{{ routeros_username }}"
-#    password: "{{ routeros_password }}"
-#    reboot: yes
-    version:
-EOF
-) # always keep "version:" in last line!
+ros_versions=versions.yml
 changed="False"
 
 cd $ros_repo > /dev/null 2>&1 || ros_repo=.
 echo "# MikroTik RouterOS repository script $script_version" > $ros_log
 echo "START: $(date --rfc-3339=seconds) in $(pwd)" >> $ros_log
+echo "---" > $ros_versions
 wget -q -O- $ros_archive |
 grep -Po "(?<=a href=\")[^\"]*/routeros/[^\"]*|(?<=>)[^<]*release tree[^<]*" |
   while read pkg; do
@@ -52,7 +35,7 @@ grep -Po "(?<=a href=\")[^\"]*/routeros/[^\"]*|(?<=>)[^<]*release tree[^<]*" |
         mkdir -p $version
         ln -snf $version $release
         echo "$version" >> $ros_log
-        echo "$ros_yml $version" > $release.yml
+        echo "routeros_$release: $version" >> $ros_versions
         #echo -n "routeros_$release=$version "
       fi
       if echo $pkg | grep -q "/$version/"; then
@@ -83,7 +66,7 @@ grep -Po "(?<=a href=\")[^\"]*/routeros/[^\"]*|(?<=>)[^<]*release tree[^<]*" |
           fi
         fi
         if echo $pkg | grep -Eq ".*/$version/dude-.*\.npk"; then
-          # downloads only x86 dude npk, no urls for other architectures?
+          # TODO: downloads only x86 dude npk, no urls for other architectures?
           arch="$(echo $pkg | grep -Po '(?<=-).*(?=\.)' | grep -Eo '[a-z]{3,}' || echo 'x86' )"
           mkdir -p $version/$arch
           new=$(wget -nv -cNP $version/$arch $ros_scheme$pkg 2>&1)
@@ -103,5 +86,9 @@ grep -Po "(?<=a href=\")[^\"]*/routeros/[^\"]*|(?<=>)[^<]*release tree[^<]*" |
       fi
     fi
   done
-echo -e "STOP: $(date --rfc-3339=seconds)" >> $ros_log
+if [ "$ros_cleanup" -gt "0" ]; then
+  echo "CLEANUP: deleting subfolders older than $ros_cleanup day(s)..." >> $ros_log
+  find . -maxdepth 1 -type d -ctime +$ros_cleanup -regex ".*[0-9]" -exec rm -rf {} \; >> $ros_log 2>&1
+fi
+echo "STOP: $(date --rfc-3339=seconds), repository size: $(du -hc | grep -v '\.' | cut -f1)" >> $ros_log
 exit 0
