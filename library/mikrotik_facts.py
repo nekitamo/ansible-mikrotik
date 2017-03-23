@@ -159,7 +159,7 @@ def device_connect(module, device, rosdev):
             if SHELLMODE:
                 sys.exit("failed!\nSSH error: " + str(ssh_error))
             safe_fail(module, device, msg=str(ssh_error),
-                      description='error opening ssh connection to device')
+                      description='error opening ssh connection to %s' % rosdev['hostname'])
     if SHELLMODE:
         print "succes."
 
@@ -319,6 +319,8 @@ def main():
         mtfacts.update(parse_facts(device, "snmp print without-paging", "snmp_"))
         mtfacts['disabled_packages'] = parse_terse(device, "name",
             "system package print terse without-paging where disabled=yes")
+        mtfacts['scheduled_packages'] = parse_terse(device, "name",
+            'system package print terse without-paging where scheduled~"scheduled"')
         mtfacts['disabled_interfaces'] = parse_terse(device, "name",
             "interface print terse without-paging where disabled=yes")
         mtfacts.update(parse_facts(device,

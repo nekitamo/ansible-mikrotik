@@ -4,17 +4,23 @@
   hosts: mikrotik_routers
   connection: local
 
-  tasks:
+  vars_files:
+    - routeros/versions.yml
 
-  - name: include routeros repository vars
-    include_vars: routeros/versions.yml
+  tasks:
 
   - debug:
       var: routeros_current
+    run_once: true
 
   - name: upgrade and reboot
     mikrotik_package:
       hostname: "{{ inventory_hostname }}"
       username: admin
       version: "{{ routeros_current }}"
+      packages:
+        - system
+        - security
+        - dhcp
+        - advanced-tools
       reboot: true

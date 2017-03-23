@@ -209,7 +209,7 @@ def device_connect(module, device, rosdev):
             if SHELLMODE:
                 sys.exit("failed!\nSSH error: " + str(ssh_error))
             safe_fail(module, device, msg=str(ssh_error),
-                      description='error opening ssh connection to device')
+                      description='error opening ssh connection to %s' % rosdev['hostname'])
     if SHELLMODE:
         print "succes."
 
@@ -277,7 +277,7 @@ def main():
                 verbose=dict(default=False, type='bool'),
                 hostname=dict(required=True),
                 username=dict(default='ansible', type='str'),
-                password=dict(default=None, type='str'),
+                password=dict(default='', type='str'),
                 port=dict(default=22, type='int'),
                 timeout=dict(default=30, type='float')
             ), supports_check_mode=False

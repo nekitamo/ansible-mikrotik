@@ -94,3 +94,4 @@ test-routers
 exports/*
 routeros/*
 !routeros/routeros.sh
+*.retry

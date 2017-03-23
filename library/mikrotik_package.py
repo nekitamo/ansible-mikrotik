@@ -19,6 +19,10 @@ SHELLDEFS = {
     'packages': None,
     'version': None,
     'reboot': False
+#   TODO:
+#   'reboot_timeout': 60,
+#   'reboot_wait': true,
+#   'default_packages': ['system', 'security', 'dhcp']
 }
 MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik] v2017.03.23'
 DOCUMENTATION = """
@@ -30,9 +34,10 @@ description:
     - Supports automatic install/enable/disable package operations with local package repository
     - If you create router user 'ansible' with ssh-key you can omit username/password in playbooks    
 return_data:
+    - routeros_version
     - enabled_packages
     - disabled_packages
-    - routeros_version
+    - scheduled_packages
 options:
     repository:
         description:
@@ -108,6 +113,10 @@ enabled_packages:
     type: list
 disabled_packages:
     description: actual list of disabled packages after task execution
+    returned: always
+    type: list
+scheduled_packages:
+    description: list of packages to be enabled or disabled after next reboot
     returned: always
     type: list
 """
@@ -196,7 +205,7 @@ def device_connect(module, device, rosdev):
             if SHELLMODE:
                 sys.exit("failed!\nSSH error: " + str(ssh_error))
             safe_fail(module, device, msg=str(ssh_error),
-                      description='error opening ssh connection to device')
+                      description='error opening ssh connection to %s' % rosdev['hostname'])
     if SHELLMODE:
         print "succes."
 
@@ -250,11 +259,14 @@ def vercmp(ver1, ver2):
         return [int(x) for x in re.sub(r'(\.0+)*$', '', ver).split(".")]
     return cmp(normalize(ver1), normalize(ver2))
 
-
 def main():
     rosdev = {}
+    upload = []
+    enable = []
+    disable = []
     cmd_timeout = 15
-    reboot_timeout = 90
+    reboot_timeout = 60
+    default_packages = ['system', 'security']
     changed = False
     if not SHELLMODE:
         module = AnsibleModule(
@@ -265,7 +277,7 @@ def main():
                 reboot=dict(default=False, type='bool'),
                 hostname=dict(required=True),
                 username=dict(default='ansible', type='str'),
-                password=dict(default=None, type='str'),
+                password=dict(default='', type='str'),
                 port=dict(default=22, type='int'),
                 timeout=dict(default=30, type='float')
             ), supports_check_mode=False
@@ -311,9 +323,11 @@ def main():
                           ":put [/system resource get version]")
         device_version = str(response.split(" ")[0])
         enabled_packages = parse_terse(device, "name",
-                "system package print terse without-paging where disabled=no")
+            "system package print terse without-paging where disabled=no")
         disabled_packages = parse_terse(device, "name",
-                "system package print terse without-paging where disabled=yes")
+            "system package print terse without-paging where disabled=yes")
+        scheduled_packages = parse_terse(device, "name",
+            'system package print terse without-paging where scheduled~"scheduled"')
         for pkg in enabled_packages:
             if 'routeros' in pkg:
                 enabled_packages.remove(pkg)
@@ -322,18 +336,13 @@ def main():
             packages = list(enabled_packages)
         if turn > 1:
             break
-        res = sshcmd(module, device, cmd_timeout,
-                     'system package print count-only where scheduled~"scheduled"')
-        if not '0' in res:
-            res = sshcmd(module, device, cmd_timeout,
-                         'system package unschedule [find scheduled~"scheduled"]')
-            changed = True
         if not version:
             version = device_version
-        if vercmp(device_version, version) > 0:
+        diff = vercmp(device_version, version)
+        if diff > 0:
             downgrade = True
             if SHELLMODE:
-                print ("Downgrading: %s to %s" % (device_version, version))
+                print "Downgrading RouterOS: %s to %s" % (device_version, version)
         else:
             downgrade = False
             if vercmp(version, "6.37") >= 0:
@@ -342,20 +351,17 @@ def main():
                         packages.remove(pkg)
                         packages.append('wireless')
                         break
-            if SHELLMODE and vercmp(device_version, version) < 0:
-                print ("Upgrading: %s to %s" % (device_version, version))
-
+        if SHELLMODE and diff < 0:
+            print "Upgrading RouterOS: %s to %s" % (device_version, version)
         response = sshcmd(module, device, cmd_timeout,
                           ":put [/system resource get architecture-name]")
         arch = response.lower()
         if arch == 'x86_64':
             arch = 'x86'
-        if 'system' not in packages:
-            packages.append('system')
+        for def_pkg in default_packages:
+            if def_pkg not in packages:
+                packages.append(def_pkg)
 
-        upload = []
-        enable = []
-        disable = []
         for pkg in packages:
             if pkg in disabled_packages:
                 enable.append(pkg)
@@ -368,8 +374,8 @@ def main():
         for pkg in enabled_packages:
             if pkg not in packages:
                 disable.append(pkg)
-        if SHELLMODE and len(upload) > 1:
-            print "Uploading: %s" % ', '.join(upload)
+        if SHELLMODE and upload:
+            print "Uploading package(s): %s" % ', '.join(upload)
         for pkg in upload:
             if arch == 'x86':
                 pkg = pkg + "-" + version + ".npk"
@@ -384,24 +390,33 @@ def main():
                           description='package not found')
             else:
                 sftp = device.open_sftp()
+                uploaded = sftp.listdir()
+                if pkg in uploaded and SHELLMODE:
+                    print "- package %s found, overwritting..." % pkg
                 sftp.put(ppath, pkg)
                 sftp.close()
                 changed = True
-        if SHELLMODE and len(disable) > 1:
-            print "Disabling: %s" % ', '.join(disable)
-        for pkg in disable:
-            res = sshcmd(module, device, cmd_timeout,
-                         'system package disable [find name~"'
-                         + pkg + '"]')
-            changed = True
-        if SHELLMODE and len(enable) > 1:
-            print "Enabling: %s" % ', '.join(enable)
-        for pkg in enable:
-            res = sshcmd(module, device, cmd_timeout,
-                         'system package enable [find name~"'
-                         + pkg + '"]')
-            changed = True
-
+        if not upload:
+            if scheduled_packages and (disable or enable):
+                _res = sshcmd(module, device, cmd_timeout,
+                    'system package unschedule [find scheduled~"scheduled"]')
+#                if SHELLMODE:
+#                    print "Unscheduled package(s): %s" % ', '.join(scheduled_packages)
+                changed = True
+            if SHELLMODE and disable:
+                print "Disabling package(s): %s" % ', '.join(disable)
+            for pkg in disable:
+                _res = sshcmd(module, device, cmd_timeout,
+                              'system package disable [find name~"'
+                              + pkg + '"]')
+                changed = True
+            if SHELLMODE and enable:
+                print "Enabling package(s): %s" % ', '.join(enable)
+            for pkg in enable:
+                _res = sshcmd(module, device, cmd_timeout,
+                              'system package enable [find name~"'
+                              + pkg + '"]')
+                changed = True
         if not changed:
             break
         if reboot:
@@ -409,10 +424,10 @@ def main():
                 cmd = "system package downgrade"
             else:
                 cmd = "system reboot"
-            res = sshcmd(module, device, cmd_timeout, cmd)
+            _res = sshcmd(module, device, cmd_timeout, cmd)
             device.close()
             if SHELLMODE:
-                print ("Waiting %d seconds for reboot (/%s)..." % (reboot_timeout, cmd))
+                print "Waiting %d seconds for reboot (/%s)..." % (reboot_timeout, cmd)
             time.sleep(reboot_timeout)
             turn += 1
         turn += 1
@@ -421,15 +436,19 @@ def main():
         device.close()
         print "routeros_version: %s" % device_version
         print "enabled_packages: %s" % ', '.join(enabled_packages)
-        print "disabled_packages: %s" % ', '.join(disabled_packages)
+        if disabled_packages:
+            print "disabled_packages: %s" % ', '.join(disabled_packages)
+        if scheduled_packages:
+            print "scheduled_packages: %s" % ', '.join(scheduled_packages)
         if not changed:
-            print "No changes."
+            print "Nothing changed."
         sys.exit(0)
 
     safe_exit(module, device, changed=changed,
               routeros_version=device_version,
               enabled_packages=enabled_packages,
-              disabled_packages=disabled_packages)
+              disabled_packages=disabled_packages,
+              uploaded_packages=upload)
 
 if __name__ == '__main__':
     if len(sys.argv) > 1 or SHELLMODE:
