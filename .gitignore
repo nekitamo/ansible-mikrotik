@@ -92,6 +92,8 @@ ENV/
 test/
 test-routers
 exports/*
+!exports/
 routeros/*
 !routeros/routeros.sh
+!routeros/archive.sh
 *.retry
