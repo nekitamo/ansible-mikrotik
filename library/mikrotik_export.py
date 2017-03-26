@@ -19,9 +19,10 @@ SHELLDEFS = {
     'hide_sensitive': True,
     'local_file': False,
     'verbose': False
-# TODO: download backups
+# TODO: download backups, custom export_file
 #    'backup_dir': None,
-#    'get_backups': False
+#    'get_backups': False,
+#    'export_file' : None
 }
 MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik] v2017.03.23'
 DOCUMENTATION = """
@@ -323,6 +324,8 @@ def main():
     identity = identity.strip()
     software_id = sshcmd(module, device, cmd_timeout,
                          ":put [ /system license get software-id ]")
+    if not software_id:
+        software_id = rosdev['hostname']
     export_file = identity + "_" + software_id + ".rsc"
     export_dir = os.path.realpath(export_dir)
     exportfull = os.path.join(export_dir, export_file)

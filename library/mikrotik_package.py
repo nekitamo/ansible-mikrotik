@@ -13,7 +13,7 @@ SHELLMODE = False
 SHELLDEFS = {
     'username': 'admin',
     'password': '',
-    'timeout': 30,
+    'timeout': 60,
     'port': 22,
     'repository': 'routeros',
     'packages': None,
@@ -265,7 +265,7 @@ def main():
     enable = []
     disable = []
     cmd_timeout = 15
-    reboot_timeout = 60
+    reboot_timeout = 30
     default_packages = ['system', 'security']
     changed = False
     if not SHELLMODE:
@@ -400,8 +400,6 @@ def main():
             if scheduled_packages and (disable or enable):
                 _res = sshcmd(module, device, cmd_timeout,
                     'system package unschedule [find scheduled~"scheduled"]')
-#                if SHELLMODE:
-#                    print "Unscheduled package(s): %s" % ', '.join(scheduled_packages)
                 changed = True
             if SHELLMODE and disable:
                 print "Disabling package(s): %s" % ', '.join(disable)

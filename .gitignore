@@ -91,9 +91,9 @@ ENV/
 .vscode/
 test/
 test-routers
-exports/*
-!exports/
+exports/
 routeros/*
 !routeros/routeros.sh
 !routeros/archive.sh
 *.retry
+paramiko
