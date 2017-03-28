@@ -16,13 +16,11 @@ SHELLDEFS = {
     'port': 22,
     'export_dir': None,
     'export_file' : None,
+    'backup_dir': None,
     'timestamp': False,
     'hide_sensitive': True,
     'local_file': False,
     'verbose': False
-# TODO: download backups
-#    'backup_dir': None,
-#    'get_backups': False,
 }
 MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik] v2017.03.28'
 DOCUMENTATION = """
@@ -39,6 +37,8 @@ return_data:
     - software_id
     - export_dir
     - export_file
+    - backup_dir
+    - backup_files
 options:
     export_dir:
         description:
@@ -47,9 +47,14 @@ options:
         default: null
     export_file:
         description:
-            - The name of the exported file, automatically overwrites existing files
+            - The name of the exported file, existing files are not overwritten
         required: true
         default: <identity>_<software_id>.rsc
+    backup_dir:
+        description:
+            - Directory where backups are downloaded
+        required: true
+        default: null
     timestamp:
         description:
             - Leave default timestamp in export file (first line), disabled for version tracking
@@ -128,11 +133,21 @@ export_file:
     description: Returns filename of exported configuration
     returned: always
     type: string
+backup_dir:
+    description: Returns full os path where backups were downloaded
+    returned: if backup_dir option was used
+    type: string
+backup_files:
+    description: Returns list of downloaded backups
+    returned: if backup_dir option was used
+    type: list
 """
 SHELL_USAGE = """
 mikrotik_export.py --hostname=<hostname> --export_dir=<path>
-               [--timestamp=yes|no] [--hide_sensitive] [--verbose] [--local_file]
-               [--port=<port>] [--username=<username>] [--password=<password>]
+                   --export_file=<filename> --backup_dir=<path>
+                  [--timestamp=yes|no] [--hide_sensitive] [--verbose]
+                  [--local_file] [--timeout=<timeout>] [--port=<port>]
+                  [--username=<username>] [--password=<password>]
 """
 
 try:
@@ -270,6 +285,7 @@ def vercmp(ver1, ver2):
 
 def main():
     rosdev = {}
+    backup_files = []
     cmd_timeout = 30
     changed = False
     if not SHELLMODE:
@@ -277,6 +293,7 @@ def main():
             argument_spec=dict(
                 export_dir=dict(required=True, type='path'),
                 export_file=dict(required=False, type='str'),
+                backup_dir=dict(required=False, type='path'),
                 timestamp=dict(default=False, type='bool'),
                 hide_sensitive=dict(default=True, type='bool'),
                 local_file=dict(default=False, type='bool'),
@@ -293,6 +310,10 @@ def main():
                       error=str(import_error))
         export_dir = os.path.expanduser(module.params['export_dir'])
         export_file = module.params['export_file']
+        backup_dir = module.params['backup_dir']
+        if backup_dir:
+            backup_dir = os.path.expanduser(backup_dir)
+            backup_dir = os.path.realpath(backup_dir)
         timestamp = module.params['timestamp']
         hide_sensitive = module.params['hide_sensitive']
         local_file = module.params['local_file']
@@ -317,6 +338,10 @@ def main():
         rosdev['timeout'] = SHELLOPTS['timeout']
         hide_sensitive = SHELLOPTS['hide_sensitive']
         export_file = SHELLOPTS['export_file']
+        backup_dir = SHELLOPTS['backup_dir']
+        if backup_dir:
+            backup_dir = os.path.expanduser(backup_dir)
+            backup_dir = os.path.realpath(backup_dir)
         timestamp = SHELLOPTS['timestamp']
         local_file = SHELLOPTS['local_file']
         verbose = SHELLOPTS['verbose']
@@ -326,6 +351,8 @@ def main():
     device.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     device_connect(module, device, rosdev)
 
+    version = sshcmd(module, device, cmd_timeout,
+                     ":put [/system resource get version]")
     response = sshcmd(module, device, cmd_timeout, "system identity print")
     identity = str(response.split(": ")[1])
     identity = identity.strip()
@@ -344,17 +371,17 @@ def main():
         exportcmd += " verbose"
     if local_file:
         exportcmd += " file=ansible-export"
+        changed = True
     response = sshcmd(module, device, cmd_timeout, exportcmd)
     if local_file:
         sftp = device.open_sftp()
         sftp.get("/ansible-export.rsc", exportfull)
         sftp.close()
-        changed = True
     else:
         try:
             with open(exportfull, 'w') as exp:
-                exp.write("# " + rosdev['username'] + "@" + identity + ": "
-                          + exportcmd + "\n")
+                exp.write("# " + rosdev['username'] + "@" + identity +
+                          ", RouterOS " + version +": " + exportcmd + "\n")
                 if timestamp:
                     exp.write(response)
                 else:
@@ -367,15 +394,29 @@ def main():
                 sys.exit("Export file error: " + str(export_error))
             safe_fail(module, device, msg=str(export_error),
                       description='error writing to export file')
+    if backup_dir:
+        sftp = device.open_sftp()
+        listdir = sftp.listdir()
+        for item in listdir:
+            if item.endswith('.backup'):
+                bkp = os.path.join(backup_dir, item)
+                if not os.path.exists(bkp):
+                    sftp.get(item, bkp)
+                backup_files.append(item)
+        sftp.close()
 
     if SHELLMODE:
         device.close()
         print "export_dir: %s" % export_dir
         print "export_file: %s" % export_file
+        if backup_dir:
+            print "backup_dir: %s" % backup_dir
+            print "backup_files: %s" % ', '.join(backup_files)
         sys.exit(0)
 
     safe_exit(module, device, changed=changed,
               export_file=export_file, export_dir=export_dir,
+              backup_files=backup_files, backup_dir=backup_dir,
               identity=identity, software_id=software_id)
 
 if __name__ == '__main__':

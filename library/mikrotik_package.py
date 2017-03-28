@@ -351,11 +351,11 @@ def main():
                         packages.remove(pkg)
                         packages.append('wireless')
                         break
-        if SHELLMODE and diff < 0:
-            print "Upgrading RouterOS: %s to %s" % (device_version, version)
         response = sshcmd(module, device, cmd_timeout,
                           ":put [/system resource get architecture-name]")
         arch = response.lower()
+        if SHELLMODE and diff < 0:
+            print "Upgrading RouterOS: %s to %s (%s)" % (device_version, version, arch)
         if arch == 'x86_64':
             arch = 'x86'
         for def_pkg in default_packages:
@@ -393,7 +393,13 @@ def main():
                 uploaded = sftp.listdir()
                 if pkg in uploaded and SHELLMODE:
                     print "- package %s found, overwritting..." % pkg
-                sftp.put(ppath, pkg)
+                try:
+                    sftp.put(ppath, pkg)
+                except Exception as put_error:
+                    if SHELLMODE:
+                        sys.exit("Upload failed, SFTP error: " + str(put_error))
+                    safe_fail(module, device, msg=str(put_error),
+                              description='SFTP error, check disk space')
                 sftp.close()
                 changed = True
         if not upload:
