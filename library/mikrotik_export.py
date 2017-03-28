@@ -47,12 +47,12 @@ options:
         default: null
     export_file:
         description:
-            - The name of the exported file, existing files are not overwritten
+            - The name of the exported file, existing files are overwritten
         required: true
         default: <identity>_<software_id>.rsc
     backup_dir:
         description:
-            - Directory where backups are downloaded
+            - Directory where backups are downloaded, existing files are not overwritten
         required: true
         default: null
     timestamp:
@@ -311,9 +311,6 @@ def main():
         export_dir = os.path.expanduser(module.params['export_dir'])
         export_file = module.params['export_file']
         backup_dir = module.params['backup_dir']
-        if backup_dir:
-            backup_dir = os.path.expanduser(backup_dir)
-            backup_dir = os.path.realpath(backup_dir)
         timestamp = module.params['timestamp']
         hide_sensitive = module.params['hide_sensitive']
         local_file = module.params['local_file']
@@ -339,9 +336,6 @@ def main():
         hide_sensitive = SHELLOPTS['hide_sensitive']
         export_file = SHELLOPTS['export_file']
         backup_dir = SHELLOPTS['backup_dir']
-        if backup_dir:
-            backup_dir = os.path.expanduser(backup_dir)
-            backup_dir = os.path.realpath(backup_dir)
         timestamp = SHELLOPTS['timestamp']
         local_file = SHELLOPTS['local_file']
         verbose = SHELLOPTS['verbose']
@@ -395,6 +389,8 @@ def main():
             safe_fail(module, device, msg=str(export_error),
                       description='error writing to export file')
     if backup_dir:
+        backup_dir = os.path.expanduser(backup_dir)
+        backup_dir = os.path.realpath(backup_dir)
         sftp = device.open_sftp()
         listdir = sftp.listdir()
         for item in listdir:
