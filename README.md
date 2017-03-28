@@ -5,7 +5,7 @@
 * RouterOS upgrades and package management (**mikrotik_package.py**),
 * ~~direct command execution or script upload (**mikrotik_command.py**).~~ _work in progress..._
 
-Internet access is not necessary for package management, however you have to create local package repository either manually or by using one of included shell scripts as described in the 3rd step.
+Internet access is not necessary for package management, however you have to create local package repository either manually or by using one of included shell scripts as described later in the 3rd step.
 ## 1. Basic prerequisites installation (debian/ubuntu):
 Install stable version of Ansible, for example by adding its [Launchpad](https://launchpad.net/~ansible/+archive/ubuntu/ansible) repository on ubuntu:
 ```sh

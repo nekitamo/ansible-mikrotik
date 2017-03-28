@@ -15,23 +15,23 @@ SHELLDEFS = {
     'timeout': 30,
     'port': 22,
     'export_dir': None,
+    'export_file' : None,
     'timestamp': False,
     'hide_sensitive': True,
     'local_file': False,
     'verbose': False
-# TODO: download backups, custom export_file
+# TODO: download backups
 #    'backup_dir': None,
 #    'get_backups': False,
-#    'export_file' : None
 }
-MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik] v2017.03.23'
+MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik] v2017.03.28'
 DOCUMENTATION = """
 ---
 
 module: mikrotik_export
 short_description: MikroTik RouterOS configuration export
 description:
-    - Exports full router configuration to <identity>_<software_id>.rsc file in export directory
+    - Exports full router configuration to a text file in export directory
     - By default no local export file is created on the router (enable with local_file: yes)
     - If you create router user 'ansible' with ssh-key you can omit username/password in playbooks
 return_data:
@@ -42,10 +42,14 @@ return_data:
 options:
     export_dir:
         description:
-            - Directory where exported file (<identity>_<software_id>.rsc) is written after export
-            - Existing files with the same name are automatically overwritten
+            - Directory where export_file is written after export
         required: true
         default: null
+    export_file:
+        description:
+            - The name of the exported file, automatically overwrites existing files
+        required: true
+        default: <identity>_<software_id>.rsc
     timestamp:
         description:
             - Leave default timestamp in export file (first line), disabled for version tracking
@@ -121,7 +125,7 @@ export_dir:
     returned: always
     type: string
 export_file:
-    description: Returns filename of exported configuration (<identity>_<software_id>.rsc)
+    description: Returns filename of exported configuration
     returned: always
     type: string
 """
@@ -272,6 +276,7 @@ def main():
         module = AnsibleModule(
             argument_spec=dict(
                 export_dir=dict(required=True, type='path'),
+                export_file=dict(required=False, type='str'),
                 timestamp=dict(default=False, type='bool'),
                 hide_sensitive=dict(default=True, type='bool'),
                 local_file=dict(default=False, type='bool'),
@@ -287,6 +292,7 @@ def main():
             safe_fail(module, msg='There was a problem loading module: ',
                       error=str(import_error))
         export_dir = os.path.expanduser(module.params['export_dir'])
+        export_file = module.params['export_file']
         timestamp = module.params['timestamp']
         hide_sensitive = module.params['hide_sensitive']
         local_file = module.params['local_file']
@@ -310,6 +316,7 @@ def main():
         rosdev['port'] = SHELLOPTS['port']
         rosdev['timeout'] = SHELLOPTS['timeout']
         hide_sensitive = SHELLOPTS['hide_sensitive']
+        export_file = SHELLOPTS['export_file']
         timestamp = SHELLOPTS['timestamp']
         local_file = SHELLOPTS['local_file']
         verbose = SHELLOPTS['verbose']
@@ -326,7 +333,8 @@ def main():
                          ":put [ /system license get software-id ]")
     if not software_id:
         software_id = rosdev['hostname']
-    export_file = identity + "_" + software_id + ".rsc"
+    if not export_file:
+        export_file = identity + "_" + software_id + ".rsc"
     export_dir = os.path.realpath(export_dir)
     exportfull = os.path.join(export_dir, export_file)
     exportcmd = "export"
