@@ -5,7 +5,7 @@
 * RouterOS upgrades and package management (**mikrotik_package.py**),
 * ~~direct command execution or script upload (**mikrotik_command.py**).~~ _work in progress..._
 
-Internet access is not necessary for package management, however you have to create local package repository either manually or by using one of included shell scripts as described later in the 3rd step.
+Internet access is not necessary for package management, however you have to create local package repository either manually or by using one of the included shell scripts as described later in the 3rd step.
 ## 1. Basic prerequisites installation (debian/ubuntu):
 Install stable version of Ansible, for example by adding its [Launchpad](https://launchpad.net/~ansible/+archive/ubuntu/ansible) repository on ubuntu:
 ```sh
@@ -44,7 +44,7 @@ library/mikrotik_facts.py --hostname=192.168.88.1 --verbose
 Run it without arguments for basic usage info or open it with a text editor for detailed built-in ansible documentation.
 ## Troubleshooting
 ### SSH client error: No module named paramiko
-This means you need to install python's paramiko module. As simply apt-getting `python-paramiko` will probably just lead to problem described in next chapter, run both commands at its end to get the latest version right away.
+This means you need to install python's paramiko module. As simply apt-getting `python-paramiko` will probably just lead to problem described in the next chapter, run both commands at its end to get the latest version of paramiko right away.
 ### FutureWarning: CTR mode needs counter parameter, not IV
 If you see the above warning than your distribution's version of paramiko is, besides being pretty old, also broken and you should upgrade it:
 ```sh

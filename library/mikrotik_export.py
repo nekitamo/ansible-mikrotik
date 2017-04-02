@@ -42,18 +42,18 @@ return_data:
 options:
     export_dir:
         description:
-            - Directory where export_file is written after export
+            - Directory where export_file is written after export, created if not existing
         required: true
         default: null
     export_file:
         description:
             - The name of the exported file, existing files are overwritten
-        required: true
+        required: false
         default: <identity>_<software_id>.rsc
     backup_dir:
         description:
-            - Directory where backups are downloaded, existing files are not overwritten
-        required: true
+            - Directory where all backups are downloaded, existing files are not overwritten
+        required: false
         default: null
     timestamp:
         description:
@@ -144,8 +144,8 @@ backup_files:
 """
 SHELL_USAGE = """
 mikrotik_export.py --hostname=<hostname> --export_dir=<path>
-                   --export_file=<filename> --backup_dir=<path>
-                  [--timestamp=yes|no] [--hide_sensitive] [--verbose]
+                  [--export_file=<filename>] [--backup_dir=<path>]
+                  [--timestamp] [--hide_sensitive=no] [--verbose]
                   [--local_file] [--timeout=<timeout>] [--port=<port>]
                   [--username=<username>] [--password=<password>]
 """
@@ -341,6 +341,16 @@ def main():
         verbose = SHELLOPTS['verbose']
         module = None
 
+    export_dir = os.path.realpath(export_dir)
+    if not os.path.exists(export_dir):
+        try:
+            os.mkdir(export_dir, 0775)
+        except OSError as mkdir_error:
+            if SHELLMODE:
+                sys.exit("Export directory error: " + str(mkdir_error))
+            safe_fail(module, msg=str(mkdir_error),
+                      description='error creating export directory')
+
     device = paramiko.SSHClient()
     device.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     device_connect(module, device, rosdev)
@@ -356,7 +366,6 @@ def main():
         software_id = rosdev['hostname']
     if not export_file:
         export_file = identity + "_" + software_id + ".rsc"
-    export_dir = os.path.realpath(export_dir)
     exportfull = os.path.join(export_dir, export_file)
     exportcmd = "export"
     if hide_sensitive:
@@ -391,6 +400,15 @@ def main():
     if backup_dir:
         backup_dir = os.path.expanduser(backup_dir)
         backup_dir = os.path.realpath(backup_dir)
+        if not os.path.exists(backup_dir):
+            try:
+                os.mkdir(backup_dir, 0775)
+            except OSError as mkdir_error:
+                if SHELLMODE:
+                    device.close()
+                    sys.exit("Backup directory error: " + str(mkdir_error))
+                safe_fail(module, device, msg=str(mkdir_error),
+                          description='error creating backup directory')
         sftp = device.open_sftp()
         listdir = sftp.listdir()
         for item in listdir:
