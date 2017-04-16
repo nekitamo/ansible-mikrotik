@@ -225,7 +225,7 @@ def main():
                 timeout=dict(default=30, type='float'),
                 hostname=dict(required=True),
                 username=dict(default='ansible', type='str'),
-                password=dict(default='', type='str'),
+                password=dict(default='', type='str', no_log=True),
             ), supports_check_mode=False
         )
         if not HAS_SSHCLIENT:

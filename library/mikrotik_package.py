@@ -277,7 +277,7 @@ def main():
                 reboot=dict(default=False, type='bool'),
                 hostname=dict(required=True),
                 username=dict(default='ansible', type='str'),
-                password=dict(default='', type='str'),
+                password=dict(default='', type='str', no_log=True),
                 port=dict(default=22, type='int'),
                 timeout=dict(default=30, type='float')
             ), supports_check_mode=False
@@ -361,7 +361,6 @@ def main():
         for def_pkg in default_packages:
             if def_pkg not in packages:
                 packages.append(def_pkg)
-
         for pkg in packages:
             if pkg in disabled_packages:
                 enable.append(pkg)
