@@ -10,8 +10,8 @@ Internet access is not necessary for package management, however you have to cre
 Install stable version of Ansible, for example by adding its [Launchpad](https://launchpad.net/~ansible/+archive/ubuntu/ansible) repository on ubuntu:
 ```sh
 sudo apt-add-repository ppa:ansible/ansible
-apt update
-apt install ansible git
+sudo apt update
+sudo apt install ansible git
 ```
 ## 2. Download the ansible-mikrotik library:
 ```sh
