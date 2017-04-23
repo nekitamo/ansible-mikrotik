@@ -1,6 +1,6 @@
 ---
 
-- name: collect MikroTik facts
+- name: Upgrade MikroTik routers
   hosts: mikrotik_routers
   connection: local
 

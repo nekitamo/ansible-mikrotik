@@ -96,4 +96,4 @@ routeros/*
 !routeros/routeros.sh
 !routeros/archive.sh
 *.retry
-paramiko
+*.vdi

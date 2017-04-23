@@ -13,7 +13,7 @@ mkdir -p $test_dir && cd $test_dir && mkdir -p VMs
 if [ $# -eq 0 ]; then
   dl="https:$(wget -q -O- $vdi | grep -Po '(?<=a href=")[^"]*/routeros/[^"]*\.vdi[^"]*' | head -n1)"
   wget -nv -cN $dl
-  chrhd=$(basename $dl)
+  chrhd="$(pwd)/$(basename $dl)"
 else
   chrhd="$1"
 fi
@@ -30,7 +30,7 @@ echo "[mikrotik_routers]" > ../test-routers
 for vm in {1..3}; do
   chrvm="chr$vm"
   VBoxManage createvm --name $chrvm --ostype "Other_64" --basefolder $(pwd)/VMs --register
-  VBoxManage createhd --filename $(pwd)/VMs/$chrvm/$chrvm-hd.vdi --diffparent $(pwd)/$chrhd
+  VBoxManage createhd --filename $(pwd)/VMs/$chrvm/$chrvm-hd.vdi --diffparent $chrhd
   VBoxManage storagectl $chrvm --name "SATA1" --add sata --controller IntelAHCI
   VBoxManage storageattach $chrvm --storagectl "SATA1" --port 0 --device 0 --type hdd \
       --medium $(pwd)/VMs/$chrvm/$chrvm-hd.vdi
@@ -44,12 +44,13 @@ for vm in {1..3}; do
   echo "$mgmt_lan.10$vm" >> ../test-routers
 done
 
-echo "Waiting for boot..."
+echo -n "Waiting for VMs to respond: "
 for up in {1..60}; do
-  ping -qnc 1 $mgmt_lan.101 &&
-    ping -qnc 1 $mgmt_lan.102 &&
-      ping -qnc 1 $mgmt_lan.103 && break
+  echo -n "."
+  ping -qnc 1 $mgmt_lan.101 > /dev/null && 
+    ping -qnc 1 $mgmt_lan.102 > /dev/null &&
+      ping -qnc 1 $mgmt_lan.103 > /dev/null &&
+        echo " OK." && break
 done
 
-echo -e "\nVirtual routers ready..."
 exit 0
