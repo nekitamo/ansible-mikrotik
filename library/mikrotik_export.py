@@ -243,9 +243,9 @@ def sshcmd(module, device, timeout, command):
         safe_fail(module, device, msg=str(ssh_error),
                   description='SSH error while executing command')
     response = stdout.read()
-    if not 'bad command name ' in response:
-        if not 'syntax error ' in response:
-            if not 'failure: ' in response:
+    if 'bad command name ' not in response:
+        if 'syntax error ' not in response:
+            if 'failure: ' not in response:
                 return response.rstrip()
     if SHELLMODE:
         print "Command: " + str(command)

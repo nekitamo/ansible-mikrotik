@@ -1,9 +1,38 @@
 #!/usr/bin/env python
+# coding: utf-8
+"""MikroTik RouterOS CLI ansible module"""
 
 import os
 import sys
 import socket
 
+try:
+    HAS_SSHCLIENT = True
+    import paramiko
+except ImportError as import_error:
+    HAS_SSHCLIENT = False
+
+try:
+    SHELLMODE = False
+    from ansible.module_utils.basic import AnsibleModule
+except ImportError:
+    SHELLMODE = True
+else:
+    if sys.stdin.isatty():
+        SHELLMODE = True
+
+SHELLDEFS = {
+    'username': 'admin',
+    'password': '',
+    'timeout': 30,
+    'port': 22,
+    'command': None,
+    'run_block': None,
+    'upload_script': None,
+    'test_change': False,
+    'upload_file': None
+}
+MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik] v2017.06.18'
 DOCUMENTATION = """
 ---
 
@@ -92,7 +121,7 @@ stdout_lines:
     returned: always
     type: list
 """
-SHELL_USAGE= """
+SHELL_USAGE = """
 
 mikrotik_command.py --shellmode --hostname=<hostname> --command=<command>
         [--run_block] [--upload_script] [--upload_file=<file>]
@@ -100,33 +129,21 @@ mikrotik_command.py --shellmode --hostname=<hostname> --command=<command>
 
 """
 
-try:
-    HAS_SSHCLIENT = True
-    import paramiko
-except ImportError as ie:
-    HAS_SSHCLIENT = False
-
-try:
-    shellmode = False
-    from ansible.module_utils.basic import AnsibleModule
-except ImportError:
-    shellmode = True
-
-
 def safe_fail(module, device=None, **kwargs):
+    """closes device before module fail"""
     if device:
         device.close()
     module.fail_json(**kwargs)
 
-
 def safe_exit(module, device=None, **kwargs):
+    """closes device before module exit"""
     if device:
         device.close()
     module.exit_json(**kwargs)
 
-
 def parse_opts(cmdline):
-    opts = {}
+    """returns SHELLMODE command line options as dict"""
+    options = SHELLDEFS
     for opt in cmdline:
         if opt.startswith('--'):
             try:
@@ -140,38 +157,76 @@ def parse_opts(cmdline):
                 elif val.lower() in ('yes', 'true', '1'):
                     val = True
             arg = arg[2:]
-            opts[arg] = val
-    return opts
+            if arg in options or arg == 'hostname':
+                options[arg] = val
+            else:
+                print SHELL_USAGE
+                sys.exit("Unknown option: --%s" % arg)
+    if 'hostname' not in options:
+        print SHELL_USAGE
+        sys.exit("Hostname is required, specify with --hostname=<hostname>")
+    return options
 
+def device_connect(module, device, rosdev):
+    """open ssh connection with or without ssh keys"""
+    try:
+        rosdev['hostname'] = socket.gethostbyname(rosdev['hostname'])
+    except socket.gaierror as dns_error:
+        if SHELLMODE:
+            sys.exit("Hostname error: " + str(dns_error))
+        safe_fail(module, device, msg=str(dns_error),
+                  description='error getting device address from hostname')
+    if SHELLMODE:
+        sys.stdout.write("Opening SSH connection to %s:%s... "
+                         % (rosdev['hostname'], rosdev['port']))
+        sys.stdout.flush()
+    try:
+        device.connect(rosdev['hostname'], username=rosdev['username'],
+                       password=rosdev['password'], port=rosdev['port'],
+                       timeout=rosdev['timeout'])
+    except Exception:
+        try:
+            device.connect(rosdev['hostname'], username=rosdev['username'],
+                           password=rosdev['password'], port=rosdev['port'],
+                           timeout=rosdev['timeout'], allow_agent=False,
+                           look_for_keys=False)
+        except Exception as ssh_error:
+            if SHELLMODE:
+                sys.exit("failed!\nSSH error: " + str(ssh_error))
+            safe_fail(module, device, msg=str(ssh_error),
+                      description='error opening ssh connection to %s' % rosdev['hostname'])
+    if SHELLMODE:
+        print "succes."
 
 def sshcmd(module, device, timeout, command):
+    """executes a command on the device, returns string"""
     try:
-        stdin, stdout, stderr = device.exec_command(command,
-                timeout=timeout)
-    except Exception as e:
-        if shellmode:
-            sys.exit("SSH command error: " + str(e))
-        safe_fail(module, device, msg=str(e),
-                description='SSH error while executing command')
+        _stdin, stdout, _stderr = device.exec_command(command, timeout=timeout)
+    except Exception as ssh_error:
+        if SHELLMODE:
+            sys.exit("SSH command error: " + str(ssh_error))
+        safe_fail(module, device, msg=str(ssh_error),
+                  description='SSH error while executing command')
     response = stdout.read()
-    if not 'bad command name ' in response:
-        if not 'syntax error ' in response:
-            if not 'failure: ' in response:
+    if 'bad command name ' not in response:
+        if 'syntax error ' not in response:
+            if 'failure: ' not in response:
                 return response.rstrip()
-    if shellmode:
-        device.close()
+    if SHELLMODE:
         print "Command: " + str(command)
         sys.exit("Error: " + str(response))
-    safe_fail(module, device, msg=str(response),
-            description='bad command name or syntax error')
-
+    safe_fail(module, device, msg=str(ssh_error),
+              description='bad command name or syntax error')
 
 def main():
+    """RouterOS command line interface main"""
+    rosdev = {}
+    cmd_timeout = 30
     changed = True
-    if not shellmode:
+    if not SHELLMODE:
         module = AnsibleModule(
             argument_spec=dict(
-                command=dict(required=True),
+                command=dict(required=True, type='str'),
                 run_block=dict(default=False, type='bool'),
                 upload_script=dict(default=False, type='bool'),
                 test_change=dict(default=False, type='bool'),
@@ -180,87 +235,54 @@ def main():
                 timeout=dict(default=30, type='float'),
                 hostname=dict(required=True),
                 username=dict(default='ansible', type='str'),
-                password=dict(default=None, type='str'),
+                password=dict(default=None, type='str', no_log=True),
             ), supports_check_mode=False
         )
         if not HAS_SSHCLIENT:
             safe_fail(module, msg='There was a problem loading module: ',
-                    error=str(ie))
-
+                      error=str(import_error))
         command = module.params['command']
         run_block = module.params['run_block']
         upload_script = module.params['upload_script']
         test_change = module.params['test_change']
         upload_file = os.path.expanduser(module.params['upload_file'])
-        port = module.params['port']
-        username = module.params['username']
-        password = module.params['password']
-        timeout = module.params['timeout']
-        hostname = socket.gethostbyname(module.params['hostname'])
+        rosdev['hostname'] = module.params['hostname']
+        rosdev['username'] = module.params['username']
+        rosdev['password'] = module.params['password']
+        rosdev['port'] = module.params['port']
+        rosdev['timeout'] = module.params['timeout']
 
-    elif len(sys.argv) > 1:
-        if not HAS_SSHCLIENT:
-            sys.exit("SSH client error: " + str(ie))
-        if 'command' not in opts:
-            sys.exit("Command required, specify with --command=<command>")
-        command = opts['command']
-        if 'hostname' not in opts:
-            sys.exit("Hostname required, specify with --hostname=<hostname>")
-        hostname = socket.gethostbyname(opts['hostname'])
-        run_block = False
-        upload_script = False
-        test_change = False
-        upload_file = None
-        port = 22
-        username = 'admin'
-        password = None
-        timeout = 30
-        module = None
-        if 'run_block' in opts:
-            run_block = opts['run_block']
-        if 'upload_script' in opts:
-            upload_script = opts['upload_script']
-        if 'test_change' in opts:
-            test_change = opts['test_change']
-        if 'upload_file' in opts:
-            upload_file = os.path.expanduser(opts['upload_file'])
-        if 'port' in opts:
-            port = opts['port']
-        if 'username' in opts:
-            username = opts['username']
-        if 'password' in opts:
-            password = opts['password']
-        if 'timeout' in opts:
-            timeout = opts['timeout']
     else:
-        sys.exit(SHELL_USAGE)
+        if not HAS_SSHCLIENT:
+            sys.exit("SSH client error: " + str(import_error))
+        if not SHELLOPTS['command']:
+            print SHELL_USAGE
+            sys.exit("command required, specify with --command=<cmd>")
+        rosdev['hostname'] = SHELLOPTS['hostname']
+        rosdev['username'] = SHELLOPTS['username']
+        rosdev['password'] = SHELLOPTS['password']
+        rosdev['port'] = SHELLOPTS['port']
+        rosdev['timeout'] = SHELLOPTS['timeout']
+        command = SHELLOPTS['command']
+        run_block = SHELLOPTS['run_block']
+        upload_script = SHELLOPTS['upload_script']
+        test_change = SHELLOPTS['test_change']
+        upload_file = os.path.expanduser(SHELLOPTS['upload_file'])
 
     device = paramiko.SSHClient()
     device.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    device_connect(module, device, rosdev)
 
-    try:
-        device.connect(hostname, username=username, password=password,
-                port=port, timeout=timeout)
-    except Exception:
-        try:
-            device.connect(hostname, username=username, password=password,
-                    port=port, timeout=timeout, allow_agent=False,
-                    look_for_keys=False)
-        except Exception as e:
-            if shellmode:
-                sys.exit("SSH error: " + str(e))
-            safe_fail(module, device, msg=str(e),
-                  description='error opening ssh connection to device')
-
-    response = sshcmd(module, device, timeout,
-            '/user print terse where name="' + username + '"')
+    response = sshcmd(module, device, cmd_timeout,
+                      '/user print terse where name="' +
+                      rosdev['username'] + '"')
     if 'group=read' in response:
         changed = False
         test_change = False
         upload_script = False
 
     if test_change:
-        before = sshcmd(module, device, timeout, "/export")
+        before = sshcmd(module, device, cmd_timeout, "/export")
 
     if upload_file and os.path.isfile(upload_file):
         if changed:
@@ -268,17 +290,18 @@ def main():
             sftp = device.open_sftp()
             sftp.put(upload_file, uploaded)
             sftp.close()
-            response = sshcmd(module, device, timeout,
-                '/file print terse without-paging where name="' + uploaded + '"')
+            response = sshcmd(module, device, cmd_timeout,
+                              '/file print terse without-paging where name="' +
+                              uploaded + '"')
         else:
             uploaded = "read only user!"
             response = ''
         if uploaded not in response:
-            if shellmode:
+            if SHELLMODE:
                 device.close()
                 sys.exit("Error uploading file: " + uploaded)
             safe_fail(module, device, msg="upload failed!",
-                description='error uploading file: ' + uploaded)
+                      description='error uploading file: ' + uploaded)
 
     if run_block or upload_script:
         response = ''
@@ -287,16 +310,17 @@ def main():
             with open(command) as scriptfile:
                 script = scriptfile.readlines()
                 scriptfile.close()
-        except Exception as e:
-            if shellmode:
+        except Exception as cmd_error:
+            if SHELLMODE:
                 device.close()
-                sys.exit("Script file error: " + str(e))
-            safe_fail(module, device, msg=str(e),
-                  description='error opening script file')
+                sys.exit("Script file error: " + str(cmd_error))
+            safe_fail(module, device, msg=str(cmd_error),
+                      description='error opening script file')
         if upload_script:
             scriptname = os.path.basename(command)
-            response += sshcmd(module, device, timeout,
-                    '/system script remove [ find name="' + scriptname + '" ]')
+            response += sshcmd(module, device, cmd_timeout,
+                               '/system script remove [ find name="' +
+                               scriptname + '" ]')
             cmd = '/system script add name="' + scriptname + '" source="'
             for line in script:
                 line = line.rstrip()
@@ -304,35 +328,35 @@ def main():
                 line = line.replace("\"", "\\\"")
                 line = line.replace("$", "\\$")
                 cmd += line + "\\r\\n"
-            response += sshcmd(module, device, timeout, cmd + '"')
+            response += sshcmd(module, device, cmd_timeout, cmd + '"')
         elif run_block:
             for cmd in script:
-                if cmd[0]!="#":
-                    rsp = sshcmd(module, device, timeout, cmd)
+                if cmd[0] != "#":
+                    rsp = sshcmd(module, device, cmd_timeout, cmd)
                     if rsp:
                         response += rsp + '\r\n'
     else:
         if upload_file and command == 'user ssh-keys import':
-            response = sshcmd(module, device, timeout,
-                '/user ssh-keys import public-key-file="' + uploaded
-                + '" user=' + username)
+            response = sshcmd(module, device, cmd_timeout,
+                              '/user ssh-keys import public-key-file="' +
+                              uploaded + '" user=' + rosdev['username'])
         else:
-            response = sshcmd(module, device, timeout, command)
+            response = sshcmd(module, device, cmd_timeout, command)
         if response:
             response += '\r\n'
 
     if test_change:
-        after = sshcmd(module, device, timeout, "/export")
+        after = sshcmd(module, device, cmd_timeout, "/export")
         before = before.splitlines(1)[1:]
         after = after.splitlines(1)[1:]
         if len(before) == len(after):
-            for b, a in zip(before, after):
-                if a != b:
+            for bef, aft in zip(before, after):
+                if aft != bef:
                     break
             else:
                 changed = False
 
-    if shellmode:
+    if SHELLMODE:
         device.close()
         print str(response)
         sys.exit(0)
@@ -342,11 +366,12 @@ def main():
         if line:
             stdout_lines.append(line.rstrip())
 
-    safe_exit(module, device, stdout=response, stdout_lines=stdout_lines, changed=changed)
-
+    safe_exit(module, device, stdout=response, stdout_lines=stdout_lines,
+              changed=changed)
 
 if __name__ == '__main__':
-    opts = parse_opts(sys.argv)
-    if 'shellmode' in opts:
-        shellmode = True
+    if len(sys.argv) > 1 or SHELLMODE:
+        print "Ansible MikroTik Library %s" % MIKROTIK_MODULE
+        SHELLOPTS = parse_opts(sys.argv)
+        SHELLMODE = True
     main()
