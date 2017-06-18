@@ -122,11 +122,9 @@ stdout_lines:
     type: list
 """
 SHELL_USAGE = """
-
-mikrotik_command.py --shellmode --hostname=<hostname> --command=<command>
+mikrotik_command.py --hostname=<hostname> --command=<command>
         [--run_block] [--upload_script] [--upload_file=<file>]
         [--port=<port>] [--username=<username>] [--password=<password>]
-
 """
 
 def safe_fail(module, device=None, **kwargs):
@@ -245,7 +243,7 @@ def main():
         run_block = module.params['run_block']
         upload_script = module.params['upload_script']
         test_change = module.params['test_change']
-        upload_file = os.path.expanduser(module.params['upload_file'])
+        upload_file = module.params['upload_file']
         rosdev['hostname'] = module.params['hostname']
         rosdev['username'] = module.params['username']
         rosdev['password'] = module.params['password']
@@ -267,7 +265,8 @@ def main():
         run_block = SHELLOPTS['run_block']
         upload_script = SHELLOPTS['upload_script']
         test_change = SHELLOPTS['test_change']
-        upload_file = os.path.expanduser(SHELLOPTS['upload_file'])
+        upload_file = SHELLOPTS['upload_file']
+        module = None
 
     device = paramiko.SSHClient()
     device.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -364,7 +363,7 @@ def main():
     stdout_lines = []
     for line in response.splitlines():
         if line:
-            stdout_lines.append(line.rstrip())
+            stdout_lines.append(line.strip())
 
     safe_exit(module, device, stdout=response, stdout_lines=stdout_lines,
               changed=changed)

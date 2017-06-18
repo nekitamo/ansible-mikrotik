@@ -95,6 +95,7 @@ exports/
 routeros/*
 !routeros/routeros.sh
 !routeros/archive.sh
+!routeros/latest.sh
 *.retry
 *.vdi
 paramiko/

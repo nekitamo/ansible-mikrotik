@@ -25,7 +25,7 @@ routeros/routeros.sh
 ```
 Or you can use this much simpler script that will download practically everything from MikroTik's latest software web page (1.5+ gigabytes):
 ```sh
-./ros-latest.sh
+routeros/latest.sh
 ```
 Both scripts can be used at will to create proper directory structure for use with mikrotik_package.py module. Also, both will probably have to be constantly updated as MikroTik web pages evolve with time...
 ## 4. Run some tests to see if it works

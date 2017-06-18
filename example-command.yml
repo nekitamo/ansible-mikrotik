@@ -1,0 +1,17 @@
+---
+
+- name: execute MikroTik CLI command
+  hosts: mikrotik_routers
+  connection: local
+
+  tasks:
+
+  - name: gather facts from routers
+    mikrotik_command:
+      hostname: "{{ inventory_hostname }}"
+      username: admin
+      command: 'system license print'
+    register: cmdout
+
+  - debug:
+      var: cmdout.stdout_lines

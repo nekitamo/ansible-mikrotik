@@ -5,7 +5,7 @@ set -eu
 ros_repo=routeros
 ros_latest="https://www.mikrotik.com/download"
 
-cd $ros_repo
+cd $ros_repo > /dev/null 2>&1 || ros_repo=.
 wget -q -O- $ros_latest |
 grep -Po "(?<=a href=\")[^\"]*/routeros/[^\"]*" |
   while read pkg; do
