@@ -31,6 +31,7 @@ Both scripts can be used at will to create proper directory structure for use wi
 ## 4. Run some tests to see if it works
 Running the included shell script 'create-vms.sh' should create a local test environment with 3 virtual MikroTik routers (aka CHRs). You can use them to run some example ansible playbooks like so:
 ```sh
+./create-vms.sh
 ansible-playbook -i test-routers example-mtfacts.yml
 ansible-playbook -i test-routers example-exp2git.yml
 ansible-playbook -i test-routers example-upgrade.yml
@@ -42,12 +43,23 @@ Simply use `mikrotik_<module>.py` modules from `/library` folder with shell comm
 library/mikrotik_facts.py --hostname=192.168.88.1 --verbose
 ```
 Run it without arguments for basic usage info or open it with a text editor for detailed built-in ansible documentation.
-## Troubleshooting
+## Troubleshooting (Debian/Ubuntu)
 ### SSH client error: No module named paramiko
-This means you need to install python's paramiko module. As simply apt-getting `python-paramiko` will probably just lead to problem described in the next chapter, run both commands at its end to get the latest version of paramiko right away.
+This means you need to install python's paramiko module. As simply apt-getting `python-paramiko` will probably just lead to problem described in the next chapter, run both commands at its end to get the latest version of paramiko right away. 
 ### FutureWarning: CTR mode needs counter parameter, not IV
 If you see the above warning than your distribution's version of paramiko is, besides being pretty old, also broken and you should upgrade it:
 ```sh
 sudo apt install build-essential libssl-dev libffi-dev python-dev python-pip
 sudo -H pip install --upgrade paramiko
 ```
+#### Offline upgrade
+First, download everything you need into a new folder on a host with internet access:
+```sh
+mkdir paramiko
+sudo -H pip download -r requirements.txt -d paramiko
+```
+Then transfer this folder to the off-line host and run:
+```sh
+sudo -H pip install --no-index --find-links=paramiko -r requirements.txt
+```
+Naturally, for this to work the off-line host should already have previously mentioned distribution packages. But if you have hosts w/o internet access you've probably already figured the need for some kind of apt-mirror or similar device...

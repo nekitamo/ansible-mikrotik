@@ -66,7 +66,7 @@ grep -Po "(?<=a href=\")[^\"]*/routeros/[^\"]*|(?<=>)[^<]*release tree[^<]*" |
           fi
         fi
         if echo $pkg | grep -Eq ".*/$version/dude-.*\.npk"; then
-          # TODO: downloads only x86 dude npk, no urls for other architectures?
+          # download dude npks (MT site finally fixed for non-x86 architectures)
           arch="$(echo $pkg | grep -Po '(?<=-).*(?=\.)' | grep -Eo '[a-z]{3,}' || echo 'x86' )"
           mkdir -p $version/$arch
           new=$(wget -nv -cNP $version/$arch $ros_scheme$pkg 2>&1)
