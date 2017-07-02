@@ -60,7 +60,7 @@ mndp # or mactelnet -l, wait for device discovery and note the mac-address and p
 #IP              MAC-Address       Identity (platform version hardware) uptime
 #0.0.0.0         8:0:27:4e:f2:9b   MikroTik (MikroTik 6.38.7 (bugfix) CHR)  up 0 days 0 hours   ether1
 #^C
-mactelnet -u admin -p '' <mac-address> # open CLI session and configure fixed ip address or dhcp-client:
+mactelnet -u admin -p '' <mac-address> # configure fixed ip address or dhcp-client via CLI:
 #[admin@MikroTik] > ip dhcp-client add interface=<iface>
 ```
 ## Troubleshooting (Debian/Ubuntu)
