@@ -90,12 +90,13 @@ ENV/
 
 .vscode/
 test/
-test-routers
-exports/
+test-*
+exports/*
+scripts/*
+templates/*
 routeros/*
-!routeros/routeros.sh
+!routeros/update.sh
 !routeros/archive.sh
 !routeros/latest.sh
 *.retry
 *.vdi
-paramiko/

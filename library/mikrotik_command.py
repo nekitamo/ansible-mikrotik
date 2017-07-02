@@ -11,7 +11,6 @@ try:
     import paramiko
 except ImportError as import_error:
     HAS_SSHCLIENT = False
-
 try:
     SHELLMODE = False
     from ansible.module_utils.basic import AnsibleModule
@@ -24,18 +23,18 @@ else:
 SHELLDEFS = {
     'username': 'admin',
     'password': '',
+    'key_filename': None,
     'timeout': 30,
     'port': 22,
+    'test_change': True,
     'command': None,
-    'run_block': None,
+    'execute_file': None,
     'upload_script': None,
-    'test_change': False,
     'upload_file': None
 }
-MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik] v2017.06.18'
+MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik] v17.06'
 DOCUMENTATION = """
 ---
-
 module: mikrotik_command
 short_description: Execute single or multiple MikroTik RouterOS CLI commands
 description:
@@ -49,17 +48,17 @@ return_data:
 options:
     command:
         description:
-            - MikroTik command to execute or script filename with multiple commands
-        required: yes
+            - MikroTik command to execute on the device
+        required: false
         default: null
     hostname:
         description:
             - IP Address or hostname of the MikroTik device
         required: true
         default: null
-    run_block:
+    execute_file:
         description:
-            - Execute commands from file specified in command option
+            - Execute multiple commands from the specified file
         required: no
         choices: true, false
         default: false
@@ -93,10 +92,8 @@ options:
             - Password used to login to the device
         required: no
         default: null
-
 """
 EXAMPLES = """
-
   - name: Upload and assign ssh key
     mikrotik_command:
       hostname: "{{ inventory_hostname }}"
@@ -104,12 +101,10 @@ EXAMPLES = """
       password: ""
       upload_file: "~/.ssh/id_rsa.pub"
       command: "/user ssh-keys import public-key-file=id_rsa.pub user=ansible"
-
   - name: Reboot router
     mikrotik_command:
       hostname: "{{ inventory_hostname }}"
-      command: "/system reboot;"
-
+      command: "system reboot"
 """
 RETURN = """
 stdout:
@@ -224,14 +219,15 @@ def main():
     if not SHELLMODE:
         module = AnsibleModule(
             argument_spec=dict(
-                command=dict(required=True, type='str'),
-                run_block=dict(default=False, type='bool'),
-                upload_script=dict(default=False, type='bool'),
-                test_change=dict(default=False, type='bool'),
+                command=dict(default=None, type='str'),
+                execute_file=dict(default=None, type='path'),
+                upload_script=dict(default=None, type='path'),
+                test_change=dict(default=True, type='bool'),
                 upload_file=dict(default=None, type='path'),
+                key_filename=dict(default=None, type='path'),
                 port=dict(default=22, type='int'),
                 timeout=dict(default=30, type='float'),
-                hostname=dict(required=True),
+                hostname=dict(required=True, type='str'),
                 username=dict(default='ansible', type='str'),
                 password=dict(default=None, type='str', no_log=True),
             ), supports_check_mode=False
@@ -240,10 +236,11 @@ def main():
             safe_fail(module, msg='There was a problem loading module: ',
                       error=str(import_error))
         command = module.params['command']
-        run_block = module.params['run_block']
+        execute_file = module.params['run_block']
         upload_script = module.params['upload_script']
         test_change = module.params['test_change']
         upload_file = module.params['upload_file']
+        rosdev['key_filename'] = module.params['key_filename']
         rosdev['hostname'] = module.params['hostname']
         rosdev['username'] = module.params['username']
         rosdev['password'] = module.params['password']
@@ -261,8 +258,9 @@ def main():
         rosdev['password'] = SHELLOPTS['password']
         rosdev['port'] = SHELLOPTS['port']
         rosdev['timeout'] = SHELLOPTS['timeout']
+        rosdev['key_filename'] = SHELLOPTS['key_filename']
         command = SHELLOPTS['command']
-        run_block = SHELLOPTS['run_block']
+        execute_file = SHELLOPTS['execute_file']
         upload_script = SHELLOPTS['upload_script']
         test_change = SHELLOPTS['test_change']
         upload_file = SHELLOPTS['upload_file']

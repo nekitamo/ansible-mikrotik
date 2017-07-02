@@ -2,6 +2,7 @@
 
 - name: collect MikroTik facts
   hosts: mikrotik_routers
+  gather_facts: no
   connection: local
 
   tasks:
@@ -10,6 +11,7 @@
     mikrotik_facts:
       hostname: "{{ inventory_hostname }}"
       username: admin
+      verbose: yes
     register: mikrotik
 
   - debug:

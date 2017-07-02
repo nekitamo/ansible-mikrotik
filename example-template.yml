@@ -1,0 +1,45 @@
+---
+
+- name: MikroTik RouterOS management
+  hosts: mikrotik_routers
+  gather_facts: no
+  connection: local
+  #serial: 1
+
+  vars:
+    username: "admin"
+    password: ""
+    primary_ntp: 192.168.88.100
+    secondary_ntp: 192.168.0.1
+    snmp_community: "mt_mgmt"
+    snmp_addresses: 192.168.88.0/24
+    snmp_server: 192.168.88.100
+    snmp_trapserver: 192.168.88.100
+    syslog_server: 192.168.88.100
+    syslog_port: 1514
+    syslog_topics: "!debug,!packet,!snmp"
+
+  tasks:
+
+  - name: Gather device facts
+    mikrotik_facts:
+      hostname: "{{ inventory_hostname }}"
+      username: "{{ username }}"
+      password: "{{ password }}"
+
+  - name: Prepare default setup from template
+    template:
+      src: defaults.rsc.j2
+      dest: "scripts/{{ inventory_hostname }}-defaults.rsc"
+    register: defaults
+  
+  - pause:
+
+  - name: Apply default setup on device(s)
+    mikrotik_command:
+      command: "scripts/{{ inventory_hostname }}-defaults.rsc"
+      run_block: true
+      hostname: "{{ inventory_hostname }}"
+      username: "{{ username }}"
+      password: "{{ password }}"
+    when: defaults.changed

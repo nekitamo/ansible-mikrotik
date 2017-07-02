@@ -36,7 +36,7 @@ grep -Po "(?<=a href=\")[^\"]*/routeros/[^\"]*|(?<=>)[^<]*release tree[^<]*" |
         ln -snf $version $release
         echo "$version" >> $ros_log
         echo "routeros_$release: $version" >> $ros_versions
-        #echo -n "routeros_$release=$version "
+        # echo -n "routeros_$release=$version "
       fi
       if echo $pkg | grep -q "/$version/"; then
         # extract all_packages zips into <ver>/<arch> subfolders

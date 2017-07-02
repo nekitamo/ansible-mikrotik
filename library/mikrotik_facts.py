@@ -15,7 +15,7 @@ SHELLDEFS = {
     'port': 22,
     'verbose': False
 }
-MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik] v2017.03.23'
+MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik] v2017.07'
 DOCUMENTATION = """
 ---
 
@@ -134,24 +134,17 @@ def parse_opts(cmdline):
 
 def device_connect(module, device, rosdev):
     """open ssh connection with or without ssh keys"""
-    try:
-        rosdev['hostname'] = socket.gethostbyname(rosdev['hostname'])
-    except socket.gaierror as dns_error:
-        if SHELLMODE:
-            sys.exit("Hostname error: " + str(dns_error))
-        safe_fail(module, device, msg=str(dns_error),
-                  description='error getting device address from hostname')
     if SHELLMODE:
-        sys.stdout.write("Opening SSH connection to %s:%s... "
-                         % (rosdev['hostname'], rosdev['port']))
+        sys.stdout.write("Opening SSH connection to %s(%s:%s)... "
+                         % (rosdev['hostname'], rosdev['ipaddress'], rosdev['port']))
         sys.stdout.flush()
     try:
-        device.connect(rosdev['hostname'], username=rosdev['username'],
+        device.connect(rosdev['ipaddress'], username=rosdev['username'],
                        password=rosdev['password'], port=rosdev['port'],
                        timeout=rosdev['timeout'])
     except Exception:
         try:
-            device.connect(rosdev['hostname'], username=rosdev['username'],
+            device.connect(rosdev['ipaddress'], username=rosdev['username'],
                            password=rosdev['password'], port=rosdev['port'],
                            timeout=rosdev['timeout'], allow_agent=False,
                            look_for_keys=False)
@@ -159,7 +152,8 @@ def device_connect(module, device, rosdev):
             if SHELLMODE:
                 sys.exit("failed!\nSSH error: " + str(ssh_error))
             safe_fail(module, device, msg=str(ssh_error),
-                      description='error opening ssh connection to %s' % rosdev['hostname'])
+                      description='error opening ssh connection to %s(%s:%s)' %
+                      (rosdev['hostname'], rosdev['ipaddress'], rosdev['port']))
     if SHELLMODE:
         print "succes."
 
@@ -215,6 +209,7 @@ def vercmp(ver1, ver2):
 
 def main():
     rosdev = {}
+    mtfacts = {}
     cmd_timeout = 30
     changed = False
     if not SHELLMODE:
@@ -249,12 +244,20 @@ def main():
         verbose = SHELLOPTS['verbose']
         module = None
 
+    try:
+        rosdev['ipaddress'] = socket.gethostbyname(rosdev['hostname'])
+    except socket.gaierror as dns_error:
+        if SHELLMODE:
+            sys.exit("Hostname error: " + str(dns_error))
+        safe_fail(module, msg=str(dns_error),
+                  description='error getting device address from hostname')
+
     device = paramiko.SSHClient()
     device.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     device_connect(module, device, rosdev)
 
-    mtfacts = {}
     mgmt = None
+    mtfacts['management_ip_address'] = rosdev['ipaddress']
     identity = sshcmd(module, device, cmd_timeout, "system identity print")
     mtfacts['identity'] = str(identity.split(": ")[1])
     user_ssh_keys = parse_terse(device, "key-owner",
@@ -274,7 +277,7 @@ def main():
                 'ip address print terse where address~"' + str(con[0]).split(":")[0] + '"')
         else:
             ifc = parse_terse(device, "interface",
-                'ip address print terse where address~"' + rosdev['hostname'] + '"')
+                'ip address print terse where address~"' + rosdev['ipaddress'] + '"')
         if len(ifc) == 1:
             mgmt = str(ifc[0])
 
