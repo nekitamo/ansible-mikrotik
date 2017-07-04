@@ -39,11 +39,11 @@ ansible-playbook -i test-routers example-upgrade.yml
 Try starting some of the playbooks multiple times and see what happens. There is also a cleanup script './destroy-vms.sh' which will shut down and delete virtual routers once you're done testing.
 ## 5. Some security considerations
 There are three basic ways you can handle ssh authentication:
-1. plaintext passwords in playbooks/scripts or
-2. passwords encrypted with ansible vault or
-3. omit passwords and just use ssh keys.
+1. **plaintext** passwords in playbooks/scripts or
+2. passwords encrypted with **ansible vault** or
+3. omit passwords and just use **ssh keys**.
 
-The included 'example-secure.yml' ansible playbook kind of walks you through all three cases. It starts with initial empty admin credentials to gain access to a 'blank' device, then sets new admin password from predefined credentials stored in encrypted ansible vault (test-vault.yml), and finally uploads admin's public ssh key which is later used instead of passwords.
+The included 'example-secure.yml' ansible playbook kind of walks you through all three. It starts with initial empty admin credentials to gain access to a 'blank' device, then sets new admin password from predefined credentials stored in encrypted ansible vault (test-vault.yml), and finally uploads admin's public ssh key which is later used instead of passwords.
 ## Shell mode usage (w/o ansible):
 Simply use `mikrotik_<module>.py` modules from `/library` folder with shell command line options like so (ansible parameters and command line options are exactly the same):
 ```sh
@@ -56,7 +56,7 @@ This simple tool included in standard ubuntu repositories enables you to just pl
 sudo apt install mactelnet-client
 mndp # or mactelnet -l, wait for device discovery and note the mac-address and port:
 #Searching for MikroTik routers... Abort with CTRL+C.
-
+#
 #IP              MAC-Address       Identity (platform version hardware) uptime
 #0.0.0.0         8:0:27:4e:f2:9b   MikroTik (MikroTik 6.38.7 (bugfix) CHR)  up 0 days 0 hours   ether1
 #^C
