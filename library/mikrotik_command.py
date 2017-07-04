@@ -32,7 +32,7 @@ SHELLDEFS = {
     'upload_script': None,
     'upload_file': None
 }
-MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik] v17.06'
+MIKROTIK_MODULE = '[github.com/nekitamo/ansible-mikrotik] v17.07'
 DOCUMENTATION = """
 ---
 module: mikrotik_command
@@ -162,24 +162,17 @@ def parse_opts(cmdline):
 
 def device_connect(module, device, rosdev):
     """open ssh connection with or without ssh keys"""
-    try:
-        rosdev['hostname'] = socket.gethostbyname(rosdev['hostname'])
-    except socket.gaierror as dns_error:
-        if SHELLMODE:
-            sys.exit("Hostname error: " + str(dns_error))
-        safe_fail(module, device, msg=str(dns_error),
-                  description='error getting device address from hostname')
     if SHELLMODE:
-        sys.stdout.write("Opening SSH connection to %s:%s... "
-                         % (rosdev['hostname'], rosdev['port']))
+        sys.stdout.write("Opening SSH connection to %s(%s:%s)... "
+                         % (rosdev['hostname'], rosdev['ipaddress'], rosdev['port']))
         sys.stdout.flush()
     try:
-        device.connect(rosdev['hostname'], username=rosdev['username'],
+        device.connect(rosdev['ipaddress'], username=rosdev['username'],
                        password=rosdev['password'], port=rosdev['port'],
                        timeout=rosdev['timeout'])
     except Exception:
         try:
-            device.connect(rosdev['hostname'], username=rosdev['username'],
+            device.connect(rosdev['ipaddress'], username=rosdev['username'],
                            password=rosdev['password'], port=rosdev['port'],
                            timeout=rosdev['timeout'], allow_agent=False,
                            look_for_keys=False)
@@ -187,7 +180,8 @@ def device_connect(module, device, rosdev):
             if SHELLMODE:
                 sys.exit("failed!\nSSH error: " + str(ssh_error))
             safe_fail(module, device, msg=str(ssh_error),
-                      description='error opening ssh connection to %s' % rosdev['hostname'])
+                      description='error opening ssh connection to %s(%s:%s)' %
+                      (rosdev['hostname'], rosdev['ipaddress'], rosdev['port']))
     if SHELLMODE:
         print "succes."
 
@@ -266,33 +260,29 @@ def main():
         upload_file = SHELLOPTS['upload_file']
         module = None
 
+    try:
+        rosdev['ipaddress'] = socket.gethostbyname(rosdev['hostname'])
+    except socket.gaierror as dns_error:
+        if SHELLMODE:
+            sys.exit("Hostname error: " + str(dns_error))
+        safe_fail(module, msg=str(dns_error),
+                  description='error getting device address from hostname')
+
     device = paramiko.SSHClient()
     device.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     device_connect(module, device, rosdev)
 
-    response = sshcmd(module, device, cmd_timeout,
-                      '/user print terse where name="' +
-                      rosdev['username'] + '"')
-    if 'group=read' in response:
-        changed = False
-        test_change = False
-        upload_script = False
-
     if test_change:
-        before = sshcmd(module, device, cmd_timeout, "/export")
+        before = sshcmd(module, device, cmd_timeout, "export")
 
     if upload_file and os.path.isfile(upload_file):
-        if changed:
-            uploaded = os.path.basename(upload_file)
-            sftp = device.open_sftp()
-            sftp.put(upload_file, uploaded)
-            sftp.close()
-            response = sshcmd(module, device, cmd_timeout,
-                              '/file print terse without-paging where name="' +
-                              uploaded + '"')
-        else:
-            uploaded = "read only user!"
-            response = ''
+        uploaded = os.path.basename(upload_file)
+        sftp = device.open_sftp()
+        sftp.put(upload_file, uploaded)
+        sftp.close()
+        response = sshcmd(module, device, cmd_timeout,
+                          'file print terse without-paging where name="'
+                          + uploaded + '"')
         if uploaded not in response:
             if SHELLMODE:
                 device.close()
@@ -300,11 +290,10 @@ def main():
             safe_fail(module, device, msg="upload failed!",
                       description='error uploading file: ' + uploaded)
 
-    if run_block or upload_script:
+    if upload_script and os.path.isfile(upload_script):
         response = ''
         try:
-            command = os.path.expanduser(command)
-            with open(command) as scriptfile:
+            with open(upload_script) as scriptfile:
                 script = scriptfile.readlines()
                 scriptfile.close()
         except Exception as cmd_error:
@@ -313,19 +302,18 @@ def main():
                 sys.exit("Script file error: " + str(cmd_error))
             safe_fail(module, device, msg=str(cmd_error),
                       description='error opening script file')
-        if upload_script:
-            scriptname = os.path.basename(command)
-            response += sshcmd(module, device, cmd_timeout,
-                               '/system script remove [ find name="' +
-                               scriptname + '" ]')
-            cmd = '/system script add name="' + scriptname + '" source="'
-            for line in script:
-                line = line.rstrip()
-                line = line.replace("\\", "\\\\")
-                line = line.replace("\"", "\\\"")
-                line = line.replace("$", "\\$")
-                cmd += line + "\\r\\n"
-            response += sshcmd(module, device, cmd_timeout, cmd + '"')
+        scriptname = os.path.basename(upload_script)
+        response += sshcmd(module, device, cmd_timeout,
+                           '/system script remove [ find name="'
+                           + scriptname + '" ]')
+        cmd = '/system script add name="' + scriptname + '" source="'
+        for line in script:
+            line = line.rstrip()
+            line = line.replace("\\", "\\\\")
+            line = line.replace("\"", "\\\"")
+            line = line.replace("$", "\\$")
+            cmd += line + "\\r\\n"
+        response += sshcmd(module, device, cmd_timeout, cmd + '"')
         elif run_block:
             for cmd in script:
                 if cmd[0] != "#":
