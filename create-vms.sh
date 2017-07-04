@@ -5,23 +5,9 @@ vdi="https://www.mikrotik.com/download"
 mgmt_lan="192.168.88"
 work_lan="10.0.0"
 test_dir=test
-test_key=test-rsa
-test_vault=test-vault.yml
-test_vpf=test-password
-test_password="test"
 
 [ -f test-routers ] && exit 1
 dpkg -s virtualbox > /dev/null || sudo apt install virtualbox # required
-
-echo -n "Generating test keys and password... "
-echo "$test_password" > $test_vpf
-echo "private_key: |" > $test_vault
-ssh-keygen -qf $test_key -t rsa -N '' || exit 1
-while read ln; do
-    echo "  $ln" >> $test_vault
-done <$test_key
-echo "admin_password: $(pwgen -H $test_key -s 10 1)" >> $test_vault
-ansible-vault encrypt --vault-password-file=$test_vpf $test_vault
 
 mkdir -p $test_dir && cd $test_dir && mkdir -p VMs
 if [ $# -eq 0 ]; then # download latest vdi
@@ -65,3 +51,18 @@ for vm in {1..3}; do
   echo "$mgmt_lan.10$vm sys_id=$chrvm" >> ../test-routers
 done
 
+exit 0
+test_key=test-rsa
+test_vault=test-vault.yml
+test_vpf=test-password
+test_password="test"
+dpkg -s pwgen > /dev/null || sudo apt install pwgen # required
+echo -n "Generating test keys and password... "
+echo "$test_password" > $test_vpf
+echo "private_key: |" > $test_vault
+ssh-keygen -qf $test_key -t rsa -N '' || exit 1
+while read ln; do
+    echo "  $ln" >> $test_vault
+done <$test_key
+echo "admin_password: $(pwgen -H $test_key -s 10 1)" >> $test_vault
+ansible-vault encrypt --vault-password-file=$test_vpf $test_vault
