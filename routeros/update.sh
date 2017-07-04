@@ -6,12 +6,12 @@ set -eu
 # mikrotik_package.py Ansible module. It may need some adjustments
 # from time to time as target MikroTik web changes (ros_archive).
 #
-script_version="v2017.03.23 by https://github.com/nekitamo"
+script_version="v2017.07 by https://github.com/nekitamo"
 ros_scheme="https:"
 ros_archive="$ros_scheme//www.mikrotik.com/download/archive"
 ros_repo=routeros
 ros_cleanup=180
-ros_log=routeros.log
+ros_log=update.log
 ros_versions=versions.yml
 changed="False"
 
