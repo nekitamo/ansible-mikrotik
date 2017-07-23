@@ -11,6 +11,7 @@ SHELLMODE = False
 SHELLDEFS = {
     'username': 'admin',
     'password': '',
+    'key_filename': None,
     'timeout': 30,
     'port': 22,
     'verbose': False
@@ -140,8 +141,8 @@ def device_connect(module, device, rosdev):
         sys.stdout.flush()
     try:
         device.connect(rosdev['ipaddress'], username=rosdev['username'],
-                       password=rosdev['password'], port=rosdev['port'],
-                       timeout=rosdev['timeout'])
+                       key_filename=rosdev['key_filename'], port=rosdev['port'],
+                       timeout=rosdev['timeout'], password=rosdev['password'])
     except Exception:
         try:
             device.connect(rosdev['ipaddress'], username=rosdev['username'],
@@ -219,6 +220,7 @@ def main():
                 port=dict(default=22, type='int'),
                 timeout=dict(default=30, type='float'),
                 hostname=dict(required=True),
+                key_filename=dict(default=None, type='path'),
                 username=dict(default='ansible', type='str'),
                 password=dict(default='', type='str', no_log=True),
             ), supports_check_mode=False
@@ -230,6 +232,7 @@ def main():
         rosdev['hostname'] = module.params['hostname']
         rosdev['username'] = module.params['username']
         rosdev['password'] = module.params['password']
+        rosdev['key_filename'] = module.params['key_filename']
         rosdev['port'] = module.params['port']
         rosdev['timeout'] = module.params['timeout']
 
@@ -239,6 +242,7 @@ def main():
         rosdev['hostname'] = SHELLOPTS['hostname']
         rosdev['username'] = SHELLOPTS['username']
         rosdev['password'] = SHELLOPTS['password']
+        rosdev['key_filename'] = SHELLOPTS['key_filename']
         rosdev['port'] = SHELLOPTS['port']
         rosdev['timeout'] = SHELLOPTS['timeout']
         verbose = SHELLOPTS['verbose']
@@ -262,7 +266,7 @@ def main():
     mtfacts['identity'] = str(identity.split(": ")[1])
     user_ssh_keys = parse_terse(device, "key-owner",
             "user ssh-keys print terse where user=" + rosdev['username'])
-    if len(user_ssh_keys):
+    if user_ssh_keys:
         mtfacts['user_ssh_keys'] = user_ssh_keys
     src = parse_terse(device, "address",
             'user active print terse where name="' + rosdev['username'] + '" and via=ssh')

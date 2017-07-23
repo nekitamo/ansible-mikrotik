@@ -13,9 +13,6 @@
 
   tasks:
   - block:
-    - name: install pwgen package
-      apt:
-        name: pwgen
   
     - name: create vault password file
       shell: 'echo {{ test_password }} > {{ test_vpf }}'
@@ -28,27 +25,32 @@
         mode: 0600
     
     - name: generate test ssh keys
-      shell: "ssh-keygen -qf {{ test_key }} -t rsa -N ''"
+      shell: "ssh-keygen -qf {{ test_key }} -t rsa -N '' -C test_key"
       args:
         creates: '{{ test_key }}'
+    
+    - name: test if pwgen is installed
+      command: which pwgen
   
     - name: create and encrypt the test vault
       shell: |
-        echo "admin_password: $(pwgen -H {{ test_key }} -s 10 1)" >>{{ test_vault }}
+        echo "admin_password: $(pwgen -H {{ test_key }} -s 10 1)" >>{{ test_vault }} &&
         ansible-vault encrypt --vault-password-file={{ test_vpf }} {{ test_vault }}
       args:
         creates: '{{ test_vault }}'
 
     run_once: yes
 
-  - pause:
+#  - pause:
 
   - name: gather facts from routers
-    mikrotik_command:
+    mikrotik_facts:
       hostname: "{{ inventory_hostname }}"
       username: admin
-      command: 'system license print'
-    register: cmdout
+      key_filename: "{{ test_key }}"
+    register: mikrotik
 
   - debug:
-      var: cmdout.stdout_lines
+      var: mikrotik.user_ssh_keys
+    when: (mikrotik.user_ssh_keys is not defined) or
+          ("'test_key' not in mikrotik.user_ssh_keys")
